@@ -1,0 +1,3771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Al Borde del Abismo — Viaje Inmersivo por el Sistema Solar</title>
+  <meta name="description" content="Un viaje interactivo en 3D desde el horizonte de sucesos de un agujero negro hasta los confines del Sistema Solar y el Cinturón de Kuiper." />
+
+  <!-- Google Fonts: Space Grotesk (500/700), Inter (300/400/500) y JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+
+  <!-- Three.js y GSAP + ScrollTrigger + ScrollSmoother vía CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollSmoother.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       1. VARIABLES Y SISTEMA EDITORIAL DE ASTRONOMÍA (PASE DE REFINAMIENTO)
+       ========================================================================== */
+    :root {
+      /* Paleta cromática de observatorio astronómico (WCAG AA >= 4.5:1 sobre #05060a) */
+      --bg-void: #05060a;
+      --accent-orange: #ff6b35;
+      --accent-orange-soft: rgba(255, 107, 53, 0.16);
+      --accent-orange-glow: rgba(255, 107, 53, 0.55);
+      --accent-violet: #7b4dff;
+      --accent-violet-soft: rgba(123, 77, 255, 0.18);
+      --text-primary: #f5f1e8;
+      --text-secondary: #8a94a6; /* Ratio 6.32:1 sobre #05060a (cumple holgadamente WCAG AA 4.5:1) */
+      --line-hair: rgba(245, 241, 232, 0.14);
+      --line-muted: rgba(138, 148, 166, 0.28);
+
+      /* Familias tipográficas */
+      --font-heading: 'Space Grotesk', sans-serif;
+      --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      /* Jerarquía tipográfica exacta (5 niveles) */
+      --type-hero: clamp(4rem, 8vw, 7rem);       /* Nivel 1: nombre planeta */
+      --type-xxl-num: clamp(2.5rem, 5vw, 4rem);  /* Nivel 2: dato protagonista */
+      --type-subhead: 1.125rem;                  /* Nivel 3: subtítulos */
+      --type-body: 1rem;                         /* Nivel 4: cuerpo */
+      --type-mono-sm: 0.75rem;                   /* Nivel 5: etiquetas */
+      --type-mono-xs: 0.75rem;                   /* Nivel 5 unificado */
+
+      /* Escala estricta basada en múltiplos de 8px: 8, 16, 24, 32, 48, 64, 96, 128 */
+      --space-8: 8px;
+      --space-16: 16px;
+      --space-24: 24px;
+      --space-32: 32px;
+      --space-48: 48px;
+      --space-64: 64px;
+      --space-96: 96px;
+      --space-128: 128px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: 16px;
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: var(--type-body);
+      line-height: 1.6;
+      overflow-x: hidden;
+      max-width: 100%;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Accesibilidad: Foco visible en botones y enlaces con outline naranja 2px */
+    a:focus-visible,
+    button:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--accent-orange);
+      outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-void);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--accent-orange);
+      border-radius: 0;
+    }
+
+    /* ==========================================================================
+       2. REGLA ASTRONÓMICA HORIZONTAL CON DEGRADADO NARANJA -> TRANSPARENTE
+       ========================================================================== */
+    .astro-rule {
+      position: relative;
+      width: 100%;
+      height: var(--space-8);
+      border: none;
+      background:
+        linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%) 0 0 / 100% 1px no-repeat,
+        repeating-linear-gradient(90deg, rgba(255, 107, 53, 0.55) 0 1px, transparent 1px 64px) 0 0 / 100% 8px no-repeat,
+        repeating-linear-gradient(90deg, rgba(138, 148, 166, 0.32) 0 1px, transparent 1px 16px) 0 0 / 100% 4px no-repeat;
+      margin: 0;
+      overflow: visible;
+    }
+
+    /* ==========================================================================
+       3. ÚNICO CANVAS WEBGL GLOBAL
+       ========================================================================== */
+    #cosmos-webgl-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* ==========================================================================
+       4. NAVEGACIÓN SUPERIOR (INDICADOR 01 / 08 Y CONSOLA ASTEROIDES →)
+       ========================================================================== */
+    .top-hud-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-24) var(--space-64);
+      background: linear-gradient(180deg, rgba(5, 6, 10, 0.92) 0%, rgba(5, 6, 10, 0) 100%);
+      pointer-events: none;
+    }
+
+    .top-hud-left {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-24);
+    }
+
+    .hud-index-indicator {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      color: var(--accent-orange);
+      padding: var(--space-8) var(--space-16);
+      border: 1px solid rgba(255, 107, 53, 0.45);
+      background: rgba(5, 6, 10, 0.72);
+      border-radius: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .top-hud-brand {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-16);
+      text-decoration: none;
+      color: var(--text-primary);
+      font-family: var(--font-heading);
+      font-weight: 500;
+      font-size: var(--type-body);
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      padding-bottom: 0;
+      border-bottom: 1px solid transparent;
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .top-hud-brand:hover {
+      color: var(--accent-orange);
+      border-bottom-color: var(--accent-orange);
+    }
+
+    .brand-singularity-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-void);
+      border: 1px solid var(--accent-orange);
+      box-shadow: 0 0 8px var(--accent-orange);
+    }
+
+    .top-hud-actions {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-16);
+    }
+
+    /* Botón "ASTEROIDES →" tipo consola espacial */
+    .hud-btn-codex {
+      background: rgba(5, 6, 10, 0.68);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--accent-orange);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 500;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      padding: var(--space-8) var(--space-16);
+      border-radius: 2px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    }
+
+    .hud-btn-codex:hover {
+      background: rgba(255, 107, 53, 0.14);
+      color: var(--accent-orange);
+      box-shadow: 0 0 16px rgba(255, 107, 53, 0.48), inset 0 0 8px rgba(255, 107, 53, 0.18);
+      transform: translateY(-1px);
+    }
+
+    /* Barra lateral derecha: puntos pequeños, activo más grande con brillo */
+    .orbital-progress-rail {
+      position: fixed;
+      right: var(--space-32);
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 95;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-16);
+      padding: var(--space-16) var(--space-8);
+    }
+
+    .orbital-progress-rail::before {
+      content: '';
+      position: absolute;
+      top: var(--space-16);
+      bottom: var(--space-16);
+      left: 50%;
+      width: 1px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, transparent, rgba(138, 148, 166, 0.28) 15%, rgba(138, 148, 166, 0.28) 85%, transparent);
+      z-index: -1;
+    }
+
+    .rail-node {
+      position: relative;
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(138, 148, 166, 0.55);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .rail-node:hover {
+      background: var(--text-primary);
+      transform: scale(1.25);
+    }
+
+    .rail-node.active {
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--accent-orange);
+      transform: scale(1.5);
+      box-shadow: 0 0 8px var(--accent-orange), 0 0 16px rgba(255, 107, 53, 0.75);
+    }
+
+    .rail-node::before {
+      content: attr(data-label);
+      position: absolute;
+      right: var(--space-24);
+      top: 50%;
+      transform: translateY(-50%) translateX(8px);
+      background: rgba(5, 6, 10, 0.94);
+      border: 1px solid rgba(255, 107, 53, 0.45);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      padding: var(--space-8) var(--space-16);
+      border-radius: 2px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .rail-node:hover::before {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    /* ==========================================================================
+       5. ESTRUCTURA DE SECCIONES (#smooth-wrapper / #smooth-content)
+       ========================================================================== */
+    #smooth-wrapper {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+    }
+
+    #smooth-content {
+      position: relative;
+      width: 100%;
+      will-change: transform;
+    }
+
+    main {
+      position: relative;
+      z-index: 5;
+    }
+
+    .snap-section {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-96) var(--space-64) var(--space-64);
+      border-bottom: 1px solid rgba(245, 241, 232, 0.08);
+      overflow: hidden;
+    }
+
+    /* ==========================================================================
+       6. PANTALLA DE APERTURA: AGUJERO NEGRO (#abismo)
+       ========================================================================== */
+    #abismo {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      text-align: center;
+      padding: var(--space-96) var(--space-64) var(--space-64);
+    }
+
+    .hero-top-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      padding: var(--space-8) var(--space-16);
+      border-radius: 2px;
+      background: rgba(5, 6, 10, 0.72);
+      border-left: 1px solid var(--accent-orange);
+      border-right: 1px solid var(--accent-violet);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+    }
+
+    .hero-center-copy {
+      margin-top: auto;
+      margin-bottom: var(--space-32);
+      max-width: 1040px;
+      z-index: 3;
+      pointer-events: none;
+      will-change: transform, opacity;
+      background: radial-gradient(closest-side, rgba(5, 6, 10, 0.82) 0%, rgba(5, 6, 10, 0) 100%);
+      padding: var(--space-24);
+    }
+
+    .hero-title {
+      font-family: var(--font-heading);
+      font-size: var(--type-hero);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      margin-bottom: var(--space-16);
+    }
+
+    .hero-title-rule {
+      width: var(--space-96);
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%);
+      margin: 0 auto var(--space-24);
+      border: none;
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-body);
+      font-size: var(--type-subhead);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-width: 680px;
+      margin: 0 auto var(--space-24);
+    }
+
+    .hero-physics-tags {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--space-16);
+      pointer-events: auto;
+    }
+
+    .physics-chip {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+      background: transparent;
+      border-bottom: 1px solid rgba(255, 107, 53, 0.35);
+      padding: var(--space-8) 0;
+      border-radius: 0;
+    }
+
+    .scroll-indicator-btn {
+      pointer-events: auto;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-8);
+      background: none;
+      border: none;
+      border-bottom: 1px solid transparent;
+      padding-bottom: var(--space-8);
+      color: var(--text-primary);
+      text-decoration: none;
+      cursor: pointer;
+      z-index: 4;
+      transition: border-color 0.2s ease, color 0.2s ease;
+    }
+
+    .scroll-indicator-btn:hover {
+      border-bottom-color: var(--accent-orange);
+    }
+
+    .scroll-indicator-label {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      color: var(--accent-orange);
+    }
+
+    .scroll-arrow-circle {
+      width: var(--space-32);
+      height: var(--space-32);
+      border-radius: 2px;
+      border: 1px solid rgba(255, 107, 53, 0.55);
+      background: rgba(5, 6, 10, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      will-change: transform;
+      animation: pulseArrow 2.2s infinite ease-in-out;
+    }
+
+    @keyframes pulseArrow {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, 8px, 0); }
+    }
+
+    /* ==========================================================================
+       7. SECCIONES DE PLANETAS — DISEÑO EDITORIAL DE OBSERVATORIO
+       ========================================================================== */
+    .planet-section-grid {
+      position: relative;
+      width: 100%;
+      max-width: 1440px;
+      display: grid;
+      grid-template-columns: 1.18fr 0.82fr;
+      gap: var(--space-64);
+      align-items: start;
+      z-index: 4;
+    }
+
+    /* Número romano gigante translúcido al fondo de cada sección */
+    .roman-bg-watermark {
+      position: absolute;
+      top: -32px;
+      left: -16px;
+      font-family: var(--font-heading);
+      font-size: clamp(10rem, 20vw, 18rem);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      color: rgba(245, 241, 232, 0.028);
+      -webkit-text-stroke: 1px rgba(255, 107, 53, 0.07);
+      pointer-events: none;
+      user-select: none;
+      z-index: 0;
+    }
+
+    /* Anotaciones tipo coordenadas en mono pequeño en las esquinas (WCAG AA >= 4.5:1) */
+    .corner-coord {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+      pointer-events: none;
+      user-select: none;
+      z-index: 2;
+    }
+    .corner-coord-tl { top: var(--space-24); left: var(--space-64); }
+    .corner-coord-tr { top: var(--space-24); right: var(--space-64); }
+    .corner-coord-bl { bottom: var(--space-24); left: var(--space-64); }
+    .corner-coord-br { bottom: var(--space-24); right: var(--space-64); }
+
+    /* Panel editorial: todos los bordes izquierdos alineados al mismo píxel */
+    .planet-info-panel {
+      order: 1;
+      min-width: 0;
+      position: relative;
+      background-color: transparent;
+      background-image: radial-gradient(rgba(245, 241, 232, 0.075) 1px, transparent 1px);
+      background-size: 24px 24px;
+      border: none;
+      border-left: 1px solid rgba(245, 241, 232, 0.14);
+      border-radius: 0;
+      padding: var(--space-24) var(--space-32) var(--space-24) var(--space-48);
+      box-shadow: none;
+      opacity: 0;
+      transform: translate3d(0, 32px, 0);
+      will-change: transform, opacity;
+      text-align: left;
+      z-index: 2;
+    }
+
+    /* Marcas de retícula de 1px exacto en las esquinas del panel editorial */
+    .planet-info-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -1px;
+      width: var(--space-16);
+      height: var(--space-16);
+      border-top: 1px solid var(--accent-orange);
+      border-left: 1px solid var(--accent-orange);
+      pointer-events: none;
+    }
+
+    .planet-info-panel::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -1px;
+      width: var(--space-16);
+      height: var(--space-16);
+      border-bottom: 1px solid var(--accent-violet);
+      border-left: 1px solid var(--accent-violet);
+      pointer-events: none;
+    }
+
+    /* Encabezado de metadatos del panel alineado al píxel izquierdo */
+    .planet-header-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-16);
+      margin-bottom: var(--space-8);
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    .planet-order-tag {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 500;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-orange);
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    .planet-type-badge {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      padding: var(--space-8) var(--space-16);
+      border-radius: 2px;
+      background: transparent;
+      border-left: 1px solid var(--accent-violet);
+      color: var(--text-secondary);
+    }
+
+    /* Nivel 1 (nombre planeta): clamp(4rem, 8vw, 7rem), line-height 0.9, letter-spacing -0.03em, Título → primer dato: 48px */
+    .planet-title {
+      font-family: var(--font-heading);
+      font-size: var(--type-hero);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      padding-left: 0;
+      padding-bottom: var(--space-16);
+      margin-left: 0;
+      margin-bottom: var(--space-48);
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%) 1;
+      position: relative;
+      text-align: left;
+      overflow-wrap: break-word;
+    }
+
+    .planet-title .tw-char {
+      display: inline-block;
+      opacity: 1;
+      transition: opacity 0.04s ease, transform 0.12s ease;
+    }
+
+    .planet-info-panel.tw-typing .planet-title .tw-char {
+      opacity: 0;
+      animation: typewriterReveal 0.05s steps(1, end) forwards;
+      animation-delay: calc(var(--char-index, 0) * 42ms);
+    }
+
+    .planet-info-panel.tw-typing .planet-title::after {
+      content: '_';
+      font-family: var(--font-mono);
+      font-weight: 400;
+      font-size: 0.55em;
+      color: var(--accent-orange);
+      margin-left: var(--space-8);
+      animation: cursorBlink 0.55s step-end 3 forwards;
+    }
+
+    @keyframes typewriterReveal {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes cursorBlink {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    /* Contenedor de bloques editoriales — Entre bloques: 32px */
+    .planet-data-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-32);
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    /* Nivel 2 (dato protagonista): clamp(2.5rem, 5vw, 4rem), peso 700, tabular-nums, alineado a la izquierda */
+    .hero-stats-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-32);
+      text-align: left;
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    .hero-stat-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-8);
+      padding-left: 0;
+      padding-bottom: var(--space-16);
+      margin-left: 0;
+      border-bottom: 1px solid rgba(245, 241, 232, 0.12);
+      transition: border-color 0.25s ease;
+      min-width: 0;
+    }
+
+    .hero-stat-item::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 0%;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%);
+      transition: width 0.35s ease;
+    }
+
+    .hero-stat-item:hover::after {
+      width: 100%;
+    }
+
+    .hero-stat-number {
+      font-family: var(--font-mono);
+      font-size: var(--type-xxl-num);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      text-align: left;
+      padding-left: 0;
+      margin-left: 0;
+      transition: color 0.25s ease;
+    }
+
+    .hero-stat-item:hover .hero-stat-number {
+      color: var(--accent-orange);
+    }
+
+    /* Etiquetas en minúscula/oración editorial (PROHIBIDO mayúsculas para datos) */
+    .stat-meta-label {
+      font-family: var(--font-heading);
+      font-size: var(--type-subhead);
+      font-weight: 500;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      text-transform: none;
+      color: var(--text-primary);
+      padding-left: 0;
+    }
+
+    .stat-unit-sub {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      color: var(--text-secondary);
+      padding-left: 0;
+    }
+
+    /* Otros datos en lista editorial con puntos suspensivos alineados con el valor de la derecha */
+    .magazine-telemetry-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    .magazine-row {
+      position: relative;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-8);
+      width: 100%;
+      padding: var(--space-8) 0;
+      margin-left: 0;
+    }
+
+    .magazine-row::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0%;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%);
+      transition: width 0.3s ease;
+    }
+
+    .magazine-row:hover::after {
+      width: 100%;
+    }
+
+    .magazine-label {
+      font-family: var(--font-body);
+      font-size: var(--type-body);
+      font-weight: 400;
+      line-height: 1.2;
+      text-transform: none;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding-left: 0;
+      transition: color 0.2s ease;
+    }
+
+    .magazine-row:hover .magazine-label {
+      color: var(--text-primary);
+    }
+
+    .magazine-dots {
+      flex: 1;
+      border-bottom: 1px dotted rgba(138, 148, 166, 0.42);
+      height: 1px;
+      margin: 0 var(--space-16);
+      min-width: var(--space-16);
+      align-self: baseline;
+      transition: border-color 0.25s ease;
+    }
+
+    .magazine-row:hover .magazine-dots {
+      border-bottom: 1px solid rgba(255, 107, 53, 0.55);
+    }
+
+    .magazine-value {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 700;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      text-align: right;
+      white-space: nowrap;
+      transition: color 0.2s ease;
+    }
+
+    .magazine-row:hover .magazine-value {
+      color: var(--accent-orange);
+    }
+
+    /* Secciones editoriales de detalle — Entre párrafos/elementos: 16px */
+    .detail-block {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+      text-align: left;
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    /* Nivel 3 (subtítulos): 1.125rem */
+    .detail-block-heading {
+      font-family: var(--font-heading);
+      font-size: var(--type-subhead);
+      font-weight: 500;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    .detail-block-heading::before {
+      content: '//';
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      line-height: 1.2;
+      color: var(--accent-violet);
+    }
+
+    /* Nivel 4 (cuerpo): 1rem, line-height: 1.6 */
+    .detail-paragraph {
+      font-family: var(--font-body);
+      font-size: var(--type-body);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-width: 72ch;
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    /* Datos curiosos como citas con barra naranja de 1px y sangrado consistente de 16px */
+    .curiosities-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-16) var(--space-24);
+      padding-left: 0;
+      margin-left: 0;
+    }
+
+    .curiosities-list li {
+      position: relative;
+      font-family: var(--font-body);
+      font-size: var(--type-body);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text-primary);
+      border-left: 1px solid var(--accent-orange);
+      padding: 0 0 0 var(--space-16);
+      margin-left: 0;
+      transition: border-left-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .curiosities-list li:hover {
+      background: linear-gradient(90deg, rgba(255, 107, 53, 0.08), transparent);
+    }
+
+    /* Misiones como línea temporal horizontal con puntos y etiquetas alineadas entre sí */
+    .missions-tags-wrap {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      align-items: start;
+      gap: var(--space-24);
+      padding-top: var(--space-24);
+      padding-left: 0;
+      margin-top: 0;
+      margin-left: 0;
+    }
+
+    /* Eje horizontal continuo con degradado naranja → transparente */
+    .missions-tags-wrap::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%);
+    }
+
+    .mission-chip {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-8);
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin: 0;
+      text-align: left;
+      cursor: default;
+    }
+
+    /* Punto en la línea temporal horizontal con borde exacto de 1px */
+    .mission-chip::before {
+      content: '';
+      position: absolute;
+      top: -24px;
+      left: 0;
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-void);
+      border: 1px solid var(--accent-orange);
+      transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    }
+
+    /* Hover sobre misiones: punto de línea temporal se ilumina */
+    .mission-chip:hover::before {
+      background: var(--accent-orange);
+      box-shadow: 0 0 8px var(--accent-orange), 0 0 16px rgba(255, 107, 53, 0.85);
+      transform: scale(1.35);
+    }
+
+    .mission-chip strong {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-primary);
+      text-transform: none;
+      transition: color 0.2s ease;
+    }
+
+    .mission-chip:hover strong {
+      color: var(--accent-orange);
+    }
+
+    .mission-chip span {
+      font-family: var(--font-body);
+      font-size: var(--type-body);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      text-transform: none;
+    }
+
+    /* ==========================================================================
+       8. COLUMNA 3D DEL PLANETA Y CONTROLES DE CONSOLA
+       ========================================================================== */
+    .planet-3d-column {
+      order: 2;
+      min-width: 0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+
+    .planet-viewport-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 512px;
+      aspect-ratio: 1 / 1;
+      border-radius: 4px;
+      cursor: grab;
+      user-select: none;
+      touch-action: pan-y;
+      will-change: transform;
+    }
+
+    .planet-viewport-wrapper:active {
+      cursor: grabbing;
+    }
+
+    .planet-viewport-wrapper.wheel-zoom-active {
+      outline: 2px solid var(--accent-orange);
+      outline-offset: 8px;
+    }
+
+    .planet-interactive-hud {
+      margin-top: var(--space-16);
+      padding: var(--space-8) var(--space-16);
+      border-radius: 2px;
+      background: rgba(5, 6, 10, 0.78);
+      border-top: 1px solid rgba(245, 241, 232, 0.14);
+      border-bottom: 1px solid rgba(245, 241, 232, 0.14);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-16);
+    }
+
+    .planet-hud-pill {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+    }
+
+    .planet-zoom-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      border-left: 1px solid rgba(245, 241, 232, 0.15);
+      padding-left: var(--space-16);
+    }
+
+    .planet-zoom-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 500;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+      padding: var(--space-8);
+      cursor: pointer;
+      border-radius: 2px;
+      transition: border-color 0.2s ease, color 0.2s ease;
+    }
+
+    .planet-zoom-btn:hover {
+      border-color: var(--accent-orange);
+      color: var(--accent-orange);
+    }
+
+    /* ==========================================================================
+       9. SECCIÓN FINAL: CINTURÓN DE KUIPER Y CIERRE (#confines)
+       ========================================================================== */
+    #confines {
+      flex-direction: column;
+      text-align: left;
+      justify-content: center;
+    }
+
+    .finale-container {
+      max-width: 1240px;
+      width: 100%;
+      z-index: 5;
+      background: transparent;
+      background-image: radial-gradient(rgba(245, 241, 232, 0.07) 1px, transparent 1px);
+      background-size: 24px 24px;
+      border-left: 1px solid var(--accent-orange);
+      border-radius: 0;
+      padding: var(--space-32) var(--space-48);
+      box-shadow: none;
+    }
+
+    .finale-eyebrow {
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      color: var(--accent-orange);
+      margin-bottom: var(--space-16);
+      display: block;
+    }
+
+    .finale-headline {
+      font-family: var(--font-heading);
+      font-size: var(--type-hero);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      padding-bottom: var(--space-16);
+      margin-bottom: var(--space-48);
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%) 1;
+    }
+
+    .finale-lead {
+      font-family: var(--font-body);
+      font-size: var(--type-body);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-width: 75ch;
+      margin-bottom: var(--space-48);
+    }
+
+    .outer-realms-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-32);
+      text-align: left;
+      margin-bottom: var(--space-48);
+    }
+
+    .realm-card {
+      background: transparent;
+      border: none;
+      border-left: 1px solid var(--accent-violet);
+      border-radius: 0;
+      padding: 0 0 0 var(--space-24);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+    }
+
+    .realm-card h3 {
+      font-family: var(--font-heading);
+      font-size: var(--type-subhead);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .realm-card p {
+      font-size: var(--type-body);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .sources-links-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-start;
+      gap: var(--space-16);
+      padding-top: var(--space-24);
+      border-top: 1px solid rgba(245, 241, 232, 0.12);
+    }
+
+    .source-link-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      padding: var(--space-8) var(--space-16);
+      border-radius: 2px;
+      background: rgba(5, 6, 10, 0.72);
+      border: 1px solid rgba(245, 241, 232, 0.22);
+      color: var(--text-primary);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .source-link-pill:hover {
+      border-color: var(--accent-orange);
+      color: var(--accent-orange);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      box-shadow: 0 0 16px rgba(255, 107, 53, 0.3);
+    }
+
+    /* ==========================================================================
+       10. MODAL DE ARCHIVO SOLAR (sistema-solar.md) — OPTIMIZADO Y EDITORIAL
+           - Sin backdrop-filter costoso sobre el canvas WebGL
+           - Containment CSS, will-change: transform, opacity y scroll aislado
+       ========================================================================== */
+    .codex-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(5, 6, 10, 0.96);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-24) var(--space-64);
+      overscroll-behavior: contain;
+      contain: layout paint;
+      will-change: opacity;
+    }
+
+    .codex-modal-backdrop.open {
+      display: flex;
+    }
+
+    .codex-modal-content {
+      position: relative;
+      background-color: var(--bg-void);
+      background-image: radial-gradient(rgba(245, 241, 232, 0.06) 1px, transparent 1px);
+      background-size: 24px 24px;
+      border: 1px solid rgba(255, 107, 53, 0.45);
+      border-left: 1px solid var(--accent-orange);
+      border-radius: 0;
+      max-width: 1360px;
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: var(--space-32) var(--space-48);
+      will-change: transform, opacity;
+      contain: content;
+    }
+
+    .codex-modal-content::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: var(--space-16);
+      height: var(--space-16);
+      border-top: 1px solid var(--accent-orange);
+      border-left: 1px solid var(--accent-orange);
+      pointer-events: none;
+    }
+
+    .codex-modal-content::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: var(--space-16);
+      height: var(--space-16);
+      border-bottom: 1px solid var(--accent-violet);
+      border-left: 1px solid var(--accent-violet);
+      pointer-events: none;
+    }
+
+    .codex-modal-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--space-16);
+      margin-bottom: var(--space-24);
+      padding-bottom: var(--space-16);
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, var(--accent-orange) 0%, transparent 100%) 1;
+    }
+
+    .codex-modal-eyebrow {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      color: var(--accent-orange);
+      margin-bottom: var(--space-8);
+    }
+
+    .codex-modal-title {
+      font-family: var(--font-heading);
+      font-size: clamp(1.5rem, 2.5vw, 2.25rem);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .codex-close-btn {
+      background: rgba(5, 6, 10, 0.85);
+      border: 1px solid var(--accent-orange);
+      color: var(--text-primary);
+      padding: var(--space-8) var(--space-16);
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: var(--type-mono-sm);
+      font-weight: 500;
+      line-height: 1.2;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .codex-close-btn:hover {
+      background: rgba(255, 107, 53, 0.15);
+      color: var(--accent-orange);
+      box-shadow: 0 0 16px rgba(255, 107, 53, 0.35);
+    }
+
+    /* Fila de métricas protagonistas del Archivo Solar */
+    .codex-stats-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-32);
+      margin-bottom: var(--space-24);
+      padding-bottom: var(--space-16);
+      border-bottom: 1px solid rgba(245, 241, 232, 0.12);
+    }
+
+    .codex-stat-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-8);
+    }
+
+    .codex-stat-num {
+      font-family: var(--font-mono);
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-orange);
+    }
+
+    .codex-stat-label {
+      font-family: var(--font-body);
+      font-size: var(--type-mono-sm);
+      font-weight: 400;
+      line-height: 1.2;
+      color: var(--text-secondary);
+    }
+
+    .codex-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-32);
+      align-items: start;
+    }
+
+    .codex-card {
+      background: transparent;
+      border: none;
+      border-left: 1px solid var(--accent-orange);
+      border-radius: 0;
+      padding: 0 0 0 var(--space-24);
+    }
+
+    .codex-card:nth-child(2) {
+      border-left-color: var(--accent-violet);
+    }
+
+    .codex-card h4 {
+      font-family: var(--font-heading);
+      font-size: var(--type-subhead);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      margin-bottom: var(--space-8);
+    }
+
+    .codex-card p,
+    .codex-card li {
+      font-size: var(--type-mono-sm);
+      font-weight: 300;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .codex-card strong {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .codex-card ul {
+      list-style: none;
+      margin-top: var(--space-8);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-8);
+    }
+
+    .codex-card li {
+      border-bottom: 1px dotted rgba(138, 148, 166, 0.28);
+      padding-bottom: var(--space-8);
+    }
+
+    .codex-card li:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    /* ==========================================================================
+       11. BREAKPOINTS RESPONSIVE
+       - Desktop (>1200px): dos columnas (panel izquierda, 3D derecha), 64px a borde pantalla
+       - Tablet (768-1200px): panel arriba, 3D abajo
+       - Móvil (<768px): 3D arriba 50%, panel debajo, scroll libre, 24px a borde pantalla
+       ========================================================================== */
+    @media (min-width: 768px) and (max-width: 1200px) {
+      .top-hud-bar {
+        padding: var(--space-16) var(--space-32);
+      }
+      .snap-section,
+      #abismo {
+        min-height: auto;
+        padding: var(--space-96) var(--space-32) var(--space-64);
+      }
+      .planet-section-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-48);
+      }
+      .planet-info-panel {
+        order: 1;
+        width: 100%;
+      }
+      .planet-3d-column {
+        order: 2;
+        width: 100%;
+      }
+      .planet-viewport-wrapper {
+        max-width: 448px;
+      }
+      .outer-realms-grid,
+      .codex-grid,
+      .codex-stats-strip {
+        grid-template-columns: 1fr;
+      }
+      .codex-modal-backdrop {
+        padding: var(--space-24) var(--space-32);
+      }
+      .orbital-progress-rail {
+        display: none;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .top-hud-bar {
+        padding: var(--space-16) var(--space-24);
+      }
+      .orbital-progress-rail,
+      .corner-coord {
+        display: none;
+      }
+      .snap-section,
+      #abismo {
+        min-height: auto;
+        padding: var(--space-64) var(--space-24) var(--space-48);
+      }
+      .planet-section-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-32);
+      }
+      .planet-3d-column {
+        order: 1;
+        width: 100%;
+        min-height: 50vh;
+        justify-content: center;
+      }
+      .planet-viewport-wrapper {
+        max-width: 288px;
+      }
+      .planet-info-panel {
+        order: 2;
+        width: 100%;
+        padding: var(--space-16) 0 var(--space-16) var(--space-24);
+      }
+      .hero-stats-row,
+      .curiosities-list,
+      .missions-tags-wrap,
+      .outer-realms-grid,
+      .codex-grid,
+      .codex-stats-strip {
+        grid-template-columns: 1fr;
+        gap: var(--space-24);
+      }
+      .missions-tags-wrap::before {
+        display: none;
+      }
+      .mission-chip {
+        padding-left: var(--space-16);
+        border-left: 1px solid rgba(255, 107, 53, 0.35);
+      }
+      .mission-chip::before {
+        top: 8px;
+        left: -4px;
+      }
+      .magazine-row {
+        flex-wrap: wrap;
+      }
+      .codex-modal-backdrop {
+        padding: var(--space-16);
+      }
+      .finale-container,
+      .codex-modal-content {
+        padding: var(--space-24);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .planet-info-panel,
+      .planet-3d-column {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================
+       ÚNICO CANVAS WEBGL GLOBAL FUERA DE #smooth-content (ESTRELLAS + AGUJERO NEGRO + PLANETAS + KUIPER)
+       ======================================================================== -->
+  <canvas id="cosmos-webgl-canvas" aria-hidden="true"></canvas>
+
+  <!-- ========================================================================
+       BARRA SUPERIOR Y NAVEGACIÓN ORBITAL (FUERA DE #smooth-content)
+       ======================================================================== -->
+  <header class="top-hud-bar">
+    <div class="top-hud-left">
+      <span class="hud-index-indicator" id="hud-planet-counter" aria-live="polite">01 / 08</span>
+      <a href="#abismo" class="top-hud-brand">
+        <span class="brand-singularity-dot" aria-hidden="true"></span>
+        <span>Cosmos · Sistema Solar</span>
+      </a>
+    </div>
+    <div class="top-hud-actions">
+      <button type="button" class="hud-btn-codex" id="btn-open-codex">
+        <span>ASTEROIDES &rarr;</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="orbital-progress-rail" aria-label="Navegación por secciones">
+    <button type="button" class="rail-node active" data-target="#abismo" data-label="00 · Singularidad" aria-label="Agujero Negro"></button>
+    <button type="button" class="rail-node" data-target="#sec-mercurio" data-label="01 · Mercurio" aria-label="Mercurio"></button>
+    <button type="button" class="rail-node" data-target="#sec-venus" data-label="02 · Venus" aria-label="Venus"></button>
+    <button type="button" class="rail-node" data-target="#sec-tierra" data-label="03 · Tierra" aria-label="Tierra"></button>
+    <button type="button" class="rail-node" data-target="#sec-marte" data-label="04 · Marte" aria-label="Marte"></button>
+    <button type="button" class="rail-node" data-target="#sec-jupiter" data-label="05 · Júpiter" aria-label="Júpiter"></button>
+    <button type="button" class="rail-node" data-target="#sec-saturno" data-label="06 · Saturno" aria-label="Saturno"></button>
+    <button type="button" class="rail-node" data-target="#sec-urano" data-label="07 · Urano" aria-label="Urano"></button>
+    <button type="button" class="rail-node" data-target="#sec-neptuno" data-label="08 · Neptuno" aria-label="Neptuno"></button>
+    <button type="button" class="rail-node" data-target="#confines" data-label="09 · Cinturón de Kuiper" aria-label="Cinturón de Kuiper"></button>
+  </nav>
+
+  <!-- ========================================================================
+       ESTRUCTURA SCROLLSMOOTHER (#smooth-wrapper > #smooth-content)
+       ======================================================================== -->
+  <div id="smooth-wrapper">
+    <div id="smooth-content">
+      <main id="main-journey">
+
+        <!-- 1. PANTALLA DE APERTURA: AGUJERO NEGRO 3D -->
+        <section class="hero snap-section" id="abismo">
+          <span class="corner-coord corner-coord-tl" aria-hidden="true">RA 17h 45m 40.04s · DEC -29° 00' 28.1"</span>
+          <span class="corner-coord corner-coord-tr" aria-hidden="true">EPOCH J2000.0 // SGR-A*</span>
+          <span class="corner-coord corner-coord-bl" aria-hidden="true">DIST 0.00 UA // ORIGEN GRAVITACIONAL</span>
+          <span class="corner-coord corner-coord-br" aria-hidden="true">C = 299,792.458 KM/S</span>
+
+          <div class="hero-top-badge">
+            <span>Brazo de Orión · Vía Láctea · Singularidad Espaciotemporal</span>
+          </div>
+
+          <div class="hero-center-copy" id="hero-copy-box">
+            <h1 class="hero-title">Al Borde del Abismo</h1>
+            <hr class="hero-title-rule" aria-hidden="true" />
+            <p class="hero-subtitle">
+              Un viaje del agujero negro a los confines del sistema solar
+            </p>
+            <div class="hero-physics-tags">
+              <span class="physics-chip">Horizonte de Sucesos</span>
+              <span class="physics-chip">Anillo de Fotones</span>
+              <span class="physics-chip">Lente Gravitacional 3D</span>
+              <span class="physics-chip">8 Planetas · 5 Planetas Enanos</span>
+            </div>
+          </div>
+
+          <a href="#sec-mercurio" class="scroll-indicator-btn" aria-label="Iniciar viaje hacia Mercurio">
+            <span class="scroll-indicator-label">Escapar de la Gravedad &darr;</span>
+            <div class="scroll-arrow-circle" aria-hidden="true">
+              <span style="font-family: var(--font-mono); color: var(--accent-orange); font-size: 0.875rem;">&darr;</span>
+            </div>
+          </a>
+        </section>
+
+        <!-- 2. CONTENEDOR DINÁMICO DE LOS 8 PLANETAS (.planeta[data-planeta]) -->
+        <div id="planets-sections-container"></div>
+
+        <!-- 3. SECCIÓN FINAL: CIERRE DEL VIAJE PLANETARIO (CINTURÓN DE KUIPER) -->
+        <section class="snap-section" id="confines">
+          <span class="roman-bg-watermark" aria-hidden="true">IX</span>
+          <span class="corner-coord corner-coord-tl" aria-hidden="true">HELIO-LIM // 30.1 — 100,000 UA</span>
+          <span class="corner-coord corner-coord-tr" aria-hidden="true">VOYAGER 1 // 163.0 UA</span>
+
+          <div class="finale-container">
+            <span class="finale-eyebrow">Más allá de Neptuno · 30 a 100,000 UA del Sol</span>
+            <h2 class="finale-headline">El universo te espera</h2>
+            <p class="finale-lead">
+              El sistema solar no termina en Neptuno. Al alejarnos hacia el <strong>Cinturón de Kuiper</strong> (30–50 UA) y la gigantesca cáscara esférica de la <strong>Nube de Oort</strong> (2,000–100,000 UA), nos adentramos en el territorio de los mundos helados, los cometas de período largo y las sondas Voyager rumbo al espacio interestelar.
+            </p>
+
+            <div class="astro-rule" aria-hidden="true"></div>
+
+            <div class="outer-realms-grid" style="margin-top: var(--space-32);">
+              <article class="realm-card">
+                <h3>Cinturón de Kuiper (30–50 UA)</h3>
+                <p>
+                  Región en forma de rosquilla más allá de Neptuno con más de 2,000 objetos catalogados, incluyendo <strong>Plutón</strong> (2,377 km, 5 lunas con Caronte como sistema binario), <strong>Haumea</strong> (elipsoide con anillo y rotación de 4 h), <strong>Makemake</strong> y <strong>Arrokoth</strong>.
+                </p>
+              </article>
+              <article class="realm-card">
+                <h3>Disco Disperso y Eris</h3>
+                <p>
+                  Más allá del Cinturón de Kuiper habita <strong>Eris</strong> (~2,326 km de diámetro y 27% más masivo que Plutón, con masa de 1.66 × 10²² kg), además de <strong>Ceres</strong> (940 km, 2.77 UA) en el cinturón principal con criovolcanes activos.
+                </p>
+              </article>
+              <article class="realm-card">
+                <h3>Nube de Oort (2,000–100,000 UA)</h3>
+                <p>
+                  Cáscara esférica gigantesca que rodea todo el sistema solar. Mientras la luz del Sol tarda poco más de 8 minutos en llegar a la Tierra, puede tardar <strong>hasta un año y medio</strong> en cruzar la Nube de Oort.
+                </p>
+              </article>
+            </div>
+
+            <div class="sources-links-row" aria-label="Fuentes astronómicas oficiales">
+              <a href="https://ciencia.nasa.gov/sistema-solar/" target="_blank" rel="noopener noreferrer" class="source-link-pill">
+                <span>NASA Ciencia · Sistema Solar &rarr;</span>
+              </a>
+              <a href="https://www.esa.int/Space_in_Member_States/Spain" target="_blank" rel="noopener noreferrer" class="source-link-pill">
+                <span>ESA · Agencia Espacial Europea &rarr;</span>
+              </a>
+              <a href="https://griffithobservatory.org/" target="_blank" rel="noopener noreferrer" class="source-link-pill">
+                <span>Observatorio Griffith &rarr;</span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL COMPLEMENTARIO DE DATOS DE sistema-solar.md
+       ======================================================================== -->
+  <div class="codex-modal-backdrop" id="codex-modal" role="dialog" aria-modal="true" aria-labelledby="codex-modal-title">
+    <div class="codex-modal-content" id="codex-modal-panel">
+      <div class="codex-modal-header">
+        <div>
+          <span class="codex-modal-eyebrow">CATÁLOGO ESTELAR // REF. SOL-00 · CINTURÓN PRINCIPAL Y KUIPER</span>
+          <h3 id="codex-modal-title" class="codex-modal-title">
+            Archivo Astronómico: El Sol, Asteroides y Planetas Enanos
+          </h3>
+        </div>
+        <button type="button" class="codex-close-btn" id="btn-close-codex">CERRAR [X]</button>
+      </div>
+
+      <div class="codex-stats-strip">
+        <div class="codex-stat-box">
+          <span class="codex-stat-num">99.86%</span>
+          <span class="codex-stat-label">Masa del Sistema Solar concentrada en el Sol (1.989 × 10³⁰ kg · 333,000 Tierras)</span>
+        </div>
+        <div class="codex-stat-box">
+          <span class="codex-stat-num">5 Mundos</span>
+          <span class="codex-stat-label">Planetas enanos oficiales: Ceres (2.77 UA), Plutón, Haumea, Makemake y Eris</span>
+        </div>
+        <div class="codex-stat-box">
+          <span class="codex-stat-num">1.5 Años</span>
+          <span class="codex-stat-label">Tiempo que tarda la luz solar en cruzar la Nube de Oort (frente a 8 min a la Tierra)</span>
+        </div>
+      </div>
+
+      <div class="codex-grid">
+        <div class="codex-card">
+          <h4>I. El Sol: Nuestra Estrella</h4>
+          <p>Radio de ~<strong>700,000 km</strong> (109 veces el terrestre) y masa de <strong>1.989 × 10³⁰ kg</strong> (333,000 Tierras; <strong>99.86%</strong> de la masa del sistema solar).</p>
+          <ul>
+            <li><strong>Núcleo:</strong> 15 millones °C (fusión nuclear, ~138,000 km).</li>
+            <li><strong>Zona radiativa:</strong> 2 a 7 millones °C · <strong>Convectiva:</strong> &lt;2 millones °C.</li>
+            <li><strong>Fotosfera:</strong> 5,500 °C (~400 km) · <strong>Cromosfera:</strong> 4,000–20,000 °C.</li>
+            <li><strong>Corona:</strong> 1 a 2 millones °C (el gran misterio científico coronal).</li>
+            <li><strong>Rotación diferencial:</strong> 27 días (ecuador) / 35 días (polos).</li>
+            <li><strong>Composición:</strong> 73% hidrógeno, 25% helio, 2% otros. Edad: 4,550 millones de años. Gravedad: 274 m/s² (28 g).</li>
+          </ul>
+        </div>
+
+        <div class="codex-card">
+          <h4>II. Los 5 Planetas Enanos y Cinturón</h4>
+          <ul>
+            <li><strong>Ceres (2.77 UA):</strong> 940 km, rotación 9 h, órbita 4.6 años. Criovolcanes activos y agua helada interna. Explorado por <em>Dawn</em> (2015–2018).</li>
+            <li><strong>Plutón (39.5 UA):</strong> 2,377 km, órbita 248 años, rotación 6.4 días. Glaciares de nitrógeno, montañas de hielo de agua y 5 lunas (Caronte, Nix, Hidra, Estigia, Cerbero). Explorado por <em>New Horizons</em> (2015).</li>
+            <li><strong>Haumea:</strong> Forma elipsoide (~1,931 km), rotación en 4 horas, 2 lunas (Hi'iaka y Namaka) y anillo propio (2017).</li>
+            <li><strong>Makemake:</strong> 1,430 km, refleja ~77% de luz solar, atmósfera tenue de metano.</li>
+            <li><strong>Eris:</strong> Disco disperso, ~2,326 km, masa 1.66 × 10²² kg (27% más masivo que Plutón).</li>
+          </ul>
+        </div>
+
+        <div class="codex-card">
+          <h4>III. Vecindario Cósmico</h4>
+          <ul>
+            <li><strong>Ubicación:</strong> Brazo de Orión en la Vía Láctea.</li>
+            <li><strong>Escala de luz:</strong> La luz solar tarda poco más de 8 minutos en llegar a la Tierra, pero hasta <strong>1.5 años</strong> en cruzar la Nube de Oort.</li>
+            <li><strong>Fenómenos solares:</strong> Manchas solares (4,000 °C), erupciones (flares), eyecciones de masa coronal (CMEs) y viento solar (400–800 km/s).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MOTOR 3D OPTIMIZADO Y CONTENIDO EXTRAÍDO DE sistema-solar.md
+       ======================================================================== -->
+  <script>
+    /* ==========================================================================
+       1. BASE DE DATOS EXTRAÍDA FIELMENTE DE "sistema-solar.md"
+          (Longitudes de texto e ítems normalizados para consistencia visual)
+       ========================================================================== */
+    const PLANETS_DATA = [
+      {
+        id: 'mercurio',
+        index: 0,
+        order: '01',
+        name: 'Mercurio',
+        type: 'Rocoso (terrestre)',
+        diameterNum: '4,879',
+        diameterUnit: 'kilómetros · Radio: 2,439.7 km',
+        distanceNum: '57.9 M',
+        distanceUnit: 'kilómetros del Sol · 0.39 UA',
+        orbitalPeriod: '88 días terrestres (47.4 km/s)',
+        rotationPeriod: '59 días terrestres (día solar: 176 d)',
+        temperature: '430 °C diurna / -180 °C nocturna',
+        moons: '0 lunas conocidas',
+        atmosphere: 'Exosfera extremadamente tenue (~10⁻¹⁵ bar) compuesta de oxígeno (42%), sodio (29%), hidrógeno (22%), helio (6%) y potasio (0.5%).',
+        curiosities: [
+          'Un día solar (amanecer a amanecer) dura 176 días terrestres, más del doble que su año de 88 días.',
+          'Presenta la mayor amplitud térmica del sistema solar (~610 °C) y alberga hielo en cráteres polares.',
+          'Su núcleo de hierro ocupa el 85% del radio planetario y destaca la colosal Cuenca Caloris (1,550 km).',
+          'Es el planeta más pequeño del sistema solar y posee un campo magnético activo (~1% del terrestre).'
+        ],
+        missions: [
+          { name: 'Mariner 10 (1974-1975)', detail: 'Tres sobrevuelos; cartografió el 45% de la superficie.' },
+          { name: 'MESSENGER (2011-2015)', detail: 'Orbitó el planeta y cartografió el 100% de su corteza.' },
+          { name: 'BepiColombo (ESA/JAXA, 2018)', detail: 'Misión conjunta para estudiar magnetosfera y relieve.' }
+        ],
+        visual: {
+          radius: 1.32,
+          tiltDeg: 0.034,
+          rotSpeed: 0.16,
+          atmosphereColor: 0x94a3b8,
+          atmosphereOpacity: 0.08
+        }
+      },
+      {
+        id: 'venus',
+        index: 1,
+        order: '02',
+        name: 'Venus',
+        type: 'Rocoso (terrestre)',
+        diameterNum: '12,104',
+        diameterUnit: 'kilómetros · Radio: 6,051.8 km',
+        distanceNum: '108.2 M',
+        distanceUnit: 'kilómetros del Sol · 0.72 UA',
+        orbitalPeriod: '225 días terrestres (35 km/s)',
+        rotationPeriod: '243 días terrestres (retrógrada, 177.4°)',
+        temperature: '465 °C media constante (~440 a ~480 °C)',
+        moons: '0 lunas conocidas',
+        atmosphere: '96.5% dióxido de carbono y 3.5% nitrógeno a 92 bar de presión, con nubes de ácido sulfúrico en superrotación de 4 días.',
+        curiosities: [
+          'Es el planeta más caliente del sistema solar por su efecto invernadero descontrolado, superando a Mercurio.',
+          'Gira en sentido retrógrado: el Sol sale por el oeste y su día dura más que su propio año.',
+          'El 90% de su superficie es terreno volcánico con más de 1,600 volcanes y Maxwell Montes (11 km).',
+          'Es el astro más brillante del cielo tras el Sol y la Luna, conocido como la "Estrella del Lucero".'
+        ],
+        missions: [
+          { name: 'Mariner 2 (1962) · Venera 7/9', detail: 'Primer sobrevuelo planetario y primeras fotos en superficie.' },
+          { name: 'Magallanes (1990-1994, NASA)', detail: 'Cartografió el 98% del relieve venusino mediante radar.' },
+          { name: 'Venus Express y Akatsuki', detail: 'Orbitadores de la ESA y JAXA dedicados a su atmósfera.' }
+        ],
+        visual: {
+          radius: 1.46,
+          tiltDeg: 177.4,
+          rotSpeed: -0.12,
+          atmosphereColor: 0xf59e0b,
+          atmosphereOpacity: 0.28
+        }
+      },
+      {
+        id: 'tierra',
+        index: 2,
+        order: '03',
+        name: 'Tierra',
+        type: 'Rocoso (terrestre)',
+        diameterNum: '12,742',
+        diameterUnit: 'kilómetros · Radio medio: 6,371 km',
+        distanceNum: '149.6 M',
+        distanceUnit: 'kilómetros del Sol · 1.00 UA',
+        orbitalPeriod: '365.25 días terrestres (29.8 km/s)',
+        rotationPeriod: '23 h 56 min 4 s (inclinación 23.44°)',
+        temperature: '15 °C media (-89.2 °C a 56.7 °C)',
+        moons: '1 luna (La Luna, +3.8 cm/año)',
+        atmosphere: '78.08% nitrógeno, 20.95% oxígeno, 0.93% argón y 0.04% CO₂ (1.014 bar), distribuida en cinco capas con ozono protector.',
+        curiosities: [
+          'Es el único planeta conocido con vida; el 71% de su superficie es agua y el 29% tierra firme en 7 continentes.',
+          'Está achatada en los polos (~21 km de diferencia) y su cumbre máxima es el Monte Everest (8,848 m).',
+          'Su núcleo externo líquido genera la magnetosfera, los Cinturones de Van Allen y las auroras polares.',
+          'Recibe ~174 petavatios de radiación solar continua, reflejando cerca del 30% de vuelta al espacio.'
+        ],
+        missions: [
+          { name: 'Deep Space Network (NASA)', detail: 'Red global de antenas espaciales; define el patrón de 1 UA.' },
+          { name: 'Programa Landsat (NASA/USGS)', detail: 'Registro satelital continuo de la superficie terrestre.' },
+          { name: 'Constelación Terra, Aqua y NOAA', detail: 'Monitoreo climático, oceánico y de la biosfera global.' }
+        ],
+        visual: {
+          radius: 1.50,
+          tiltDeg: 23.44,
+          rotSpeed: 0.28,
+          atmosphereColor: 0x38bdf8,
+          atmosphereOpacity: 0.25,
+          hasNightLights: true,
+          hasClouds: true
+        }
+      },
+      {
+        id: 'marte',
+        index: 3,
+        order: '04',
+        name: 'Marte',
+        type: 'Rocoso (terrestre)',
+        diameterNum: '6,779',
+        diameterUnit: 'kilómetros · Radio: 3,389.5 km',
+        distanceNum: '227.9 M',
+        distanceUnit: 'kilómetros del Sol · 1.52 UA',
+        orbitalPeriod: '687 días terrestres (1.88 años)',
+        rotationPeriod: '24 horas 37 minutos (inclinación 25.19°)',
+        temperature: '-63 °C media (-143 °C a 35 °C)',
+        moons: '2 lunas (Fobos y Deimos)',
+        atmosphere: '95.32% dióxido de carbono, 2.7% nitrógeno y 1.6% argón a 0.006 bar (1% terrestre), con tormentas de polvo globales.',
+        curiosities: [
+          'Su color rojizo proviene del óxido de hierro (herrumbre) y sufre tormentas de polvo planetarias.',
+          'Alberga el volcán Olympus Mons (24 km de alto) y el sistema de cañones Valles Marineris (4,000 km).',
+          'Conserva canales, deltas y minerales hidratados de antiguos océanos hace ~3,000 millones de años.',
+          'Su luna Fobos (22.2 km) orbita a solo 6,000 km de altura y se aproxima 1.8 cm cada año.'
+        ],
+        missions: [
+          { name: 'Mariner 4 y Viking 1/2 (1965-1976)', detail: 'Primer sobrevuelo cercano y primeros aterrizajes exitosos.' },
+          { name: 'Pathfinder, Spirit y Opportunity', detail: 'Pioneros móviles que confirmaron la historia hídrica marciana.' },
+          { name: 'Curiosity, Perseverance e Ingenuity', detail: 'Exploración astrobiológica, toma de muestras y vuelo autónomo.' }
+        ],
+        visual: {
+          radius: 1.38,
+          tiltDeg: 25.19,
+          rotSpeed: 0.26,
+          atmosphereColor: 0xfb923c,
+          atmosphereOpacity: 0.18
+        }
+      },
+      {
+        id: 'jupiter',
+        index: 4,
+        order: '05',
+        name: 'Júpiter',
+        type: 'Gaseoso (gigante gaseoso)',
+        diameterNum: '139,820',
+        diameterUnit: 'kilómetros · 11 veces la Tierra',
+        distanceNum: '778.5 M',
+        distanceUnit: 'kilómetros del Sol · 5.20 UA',
+        orbitalPeriod: '11.86 años terrestres (13.1 km/s)',
+        rotationPeriod: '9 horas 56 minutos (el más veloz)',
+        temperature: '-145 °C nubes (~24,000 °C núcleo)',
+        moons: '95 confirmadas (Ío, Europa, Ganímedes, Calisto)',
+        atmosphere: '90% hidrógeno y 10% helio con trazas de metano y amoníaco, bandas zonales turbulentas y la Gran Mancha Roja.',
+        curiosities: [
+          'Su masa (318 Tierras) desplaza el centro de masa del sistema solar ligeramente fuera del radio del Sol.',
+          'La Gran Mancha Roja es un anticiclón mayor que la Tierra activo desde hace más de 350 años.',
+          'Su manto de hidrógeno metálico líquido genera un campo magnético 20,000 veces más fuerte que el terrestre.',
+          'Posee 3 anillos tenues de polvo (1979) y Ganímedes supera en tamaño al planeta Mercurio.'
+        ],
+        missions: [
+          { name: 'Pioneer 10/11 y Voyager 1/2', detail: 'Primeros sobrevuelos; descubrieron anillos y volcanes en Ío.' },
+          { name: 'Sonda Galileo y Orbitador Juno', detail: 'Estudio profundo del interior joviano, auroras y lunas.' },
+          { name: 'JUICE (ESA) y Europa Clipper', detail: 'Misiones rumbo a los océanos subsuperficiales helados.' }
+        ],
+        visual: {
+          radius: 1.68,
+          tiltDeg: 3.13,
+          rotSpeed: 0.42,
+          atmosphereColor: 0xfdba74,
+          atmosphereOpacity: 0.15,
+          hasRedSpot: true
+        }
+      },
+      {
+        id: 'saturno',
+        index: 5,
+        order: '06',
+        name: 'Saturno',
+        type: 'Gaseoso (gigante gaseoso)',
+        diameterNum: '116,460',
+        diameterUnit: 'kilómetros · Radio: 58,232 km',
+        distanceNum: '1,434 M',
+        distanceUnit: 'kilómetros del Sol · 9.50 UA',
+        orbitalPeriod: '29.46 años terrestres (9.7 km/s)',
+        rotationPeriod: '10 horas 42 minutos (inclinación 26.73°)',
+        temperature: '-178 °C nubes (~11,700 °C núcleo)',
+        moons: '146 confirmadas (Titán, Encélado, Mimas)',
+        atmosphere: '96% hidrógeno y 3% helio con trazas de metano y amoníaco, coronada por un hexágono polar norte de 30,000 km.',
+        curiosities: [
+          'Su densidad media (0.687 g/cm³) es inferior a la del agua, por lo que flotaría en un océano gigante.',
+          'Sus anillos abarcan 282,000 km con solo 10 m a 1 km de grosor, divididos por la brecha de Cassini.',
+          'Los anillos tienen un 95% de hielo de agua pura y el anillo E se nutre de los géiseres de Encélado.',
+          'Titán posee una densa atmósfera nitrogenada con mares y lagos estables de metano líquido.'
+        ],
+        missions: [
+          { name: 'Pioneer 11 y Voyager 1/2 (1979-1981)', detail: 'Revelaron la intrincada estructura dinámica de sus anillos.' },
+          { name: 'Cassini-Huygens (2004-2017)', detail: 'Orbitó 294 veces Saturno y aterrizó con éxito en Titán.' },
+          { name: 'Misión Dragonfly (NASA, 2028)', detail: 'Dron nuclear programado para explorar la superficie de Titán.' }
+        ],
+        visual: {
+          radius: 1.32,
+          tiltDeg: 26.73,
+          rotSpeed: 0.38,
+          atmosphereColor: 0xfde68a,
+          atmosphereOpacity: 0.14,
+          hasSaturnRings: true
+        }
+      },
+      {
+        id: 'urano',
+        index: 6,
+        order: '07',
+        name: 'Urano',
+        type: 'Helado — Gaseoso (gigante helado)',
+        diameterNum: '50,724',
+        diameterUnit: 'kilómetros · Radio: 25,362 km',
+        distanceNum: '2,871 M',
+        distanceUnit: 'kilómetros del Sol · 19.20 UA',
+        orbitalPeriod: '84 años terrestres (6.8 km/s)',
+        rotationPeriod: '17 h 14 min (retrógrada · eje 97.77°)',
+        temperature: '-224 °C mínima (la más fría del sistema)',
+        moons: '28 confirmadas (Titania, Oberón, Miranda)',
+        atmosphere: '83% hidrógeno, 15% helio y 2.3% metano (que absorbe la luz roja dándole su color cian), sobre un manto helado.',
+        curiosities: [
+          'Fue el primer planeta descubierto mediante telescopio por William Herschel en el año 1781.',
+          'Su inclinación axial de 97.77° hace que ruede de lado en su órbita con estaciones polares de 42 años.',
+          'Registra la atmósfera más fría del sistema solar (-224 °C), pese a estar más cerca del Sol que Neptuno.',
+          'Cuenta con 13 anillos oscuros (1977), magnetosfera inclinada 59° y acantilados de 20 km en Miranda.'
+        ],
+        missions: [
+          { name: 'Voyager 2 (NASA, enero 1986)', detail: 'Única nave en visitarlo; descubrió 10 lunas y 2 anillos.' },
+          { name: 'Observatorios Hubble y James Webb', detail: 'Captaron en infrarrojo sus anillos, tormentas y auroras.' },
+          { name: 'Uranus Orbiter and Probe (2030s)', detail: 'Misión insignia propuesta para estudiar su manto helado.' }
+        ],
+        visual: {
+          radius: 1.46,
+          tiltDeg: 97.77,
+          rotSpeed: -0.30,
+          atmosphereColor: 0x67e8f9,
+          atmosphereOpacity: 0.22,
+          hasIceRings: true
+        }
+      },
+      {
+        id: 'neptuno',
+        index: 7,
+        order: '08',
+        name: 'Neptuno',
+        type: 'Helado — Gaseoso (gigante helado)',
+        diameterNum: '49,244',
+        diameterUnit: 'kilómetros · Radio: 24,622 km',
+        distanceNum: '4,495 M',
+        distanceUnit: 'kilómetros del Sol · 30.10 UA',
+        orbitalPeriod: '164.8 años terrestres (5.4 km/s)',
+        rotationPeriod: '16 horas 6 minutos (inclinación 28.32°)',
+        temperature: '-214 °C nubes (~5,100 °C núcleo)',
+        moons: '16 confirmadas (Tritón en órbita retrógrada)',
+        atmosphere: '80% hidrógeno, 19% helio y 1.5% metano con intensas bandas azules, la Gran Mancha Oscura y manto de hielos.',
+        curiosities: [
+          'Fue el primer planeta predicho matemáticamente antes de ser observado (Urbain Le Verrier, 1846).',
+          'Posee los vientos supersónicos más veloces de todo el sistema solar, alcanzando hasta 2,100 km/h.',
+          'Su mayor luna, Tritón, tiene órbita retrógrada y géiseres activos de nitrógeno líquido a -235 °C.',
+          'Rodeado por 5 anillos tenues con arcos densos (1984), completó su primera órbita observada en 2011.'
+        ],
+        missions: [
+          { name: 'Voyager 2 (NASA, agosto 1989)', detail: 'Único sobrevuelo cercano; reveló la Gran Mancha Oscura.' },
+          { name: 'Descubrimiento en Tritón (1989)', detail: 'Documentó plumas criovolcánicas activas en su luna mayor.' },
+          { name: 'Telescopios Espaciales Hubble/JWST', detail: 'Seguimiento continuo de sus arcos anulares y tormentas.' }
+        ],
+        visual: {
+          radius: 1.46,
+          tiltDeg: 28.32,
+          rotSpeed: 0.32,
+          atmosphereColor: 0x3b82f6,
+          atmosphereOpacity: 0.25,
+          hasIceRings: true,
+          isLastPlanet: true
+        }
+      }
+    ];
+
+    /* ==========================================================================
+       2. CONSTRUCCIÓN DEL DOM DE LAS 8 SECCIONES DE PLANETAS
+       ========================================================================== */
+    const planetsContainer = document.getElementById('planets-sections-container');
+    const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+    const hudCounterEl = document.getElementById('hud-planet-counter');
+
+    PLANETS_DATA.forEach((planet) => {
+      const section = document.createElement('section');
+      section.className = 'planeta snap-section planet-section';
+      section.id = `sec-${planet.id}`;
+      section.setAttribute('data-planeta', planet.id);
+      section.setAttribute('data-planet-id', planet.id);
+      section.setAttribute('data-planet-index', planet.index);
+
+      const romanNum = ROMAN_NUMERALS[planet.index] || String(planet.index + 1);
+      const titleCharsHTML = Array.from(planet.name)
+        .map((ch, idx) => `<span class="tw-char" style="--char-index:${idx}">${ch}</span>`)
+        .join('');
+
+      const curiositiesHTML = planet.curiosities.map((c) => `<li>${c}</li>`).join('');
+      const missionsHTML = planet.missions
+        .map((m) => `<div class="mission-chip"><strong>${m.name}</strong><span>${m.detail}</span></div>`)
+        .join('');
+
+      const raHours = String((planet.index * 3 + 2) % 24).padStart(2, '0');
+      const raMins = String((planet.index * 17 + 11) % 60).padStart(2, '0');
+
+      section.innerHTML = `
+        <span class="corner-coord corner-coord-tl" aria-hidden="true">RA ${raHours}h ${raMins}m · INCL ${planet.visual.tiltDeg}°</span>
+        <span class="corner-coord corner-coord-tr" aria-hidden="true">EPOCH J2000.0 // SOL-${planet.order}</span>
+        <span class="corner-coord corner-coord-bl" aria-hidden="true">RAD.REL ${planet.visual.radius.toFixed(2)} // LOG-${planet.id.toUpperCase()}</span>
+        <span class="corner-coord corner-coord-br" aria-hidden="true">V.ROT ${Math.abs(planet.visual.rotSpeed).toFixed(2)} RAD/S</span>
+
+        <div class="planet-section-grid">
+          <span class="roman-bg-watermark" aria-hidden="true">${romanNum}</span>
+
+          <article class="planet-info-panel" id="panel-${planet.id}">
+            <div class="planet-header-row">
+              <span class="planet-order-tag">${planet.order} / 08 · Sistema Solar</span>
+              <span class="planet-type-badge">${planet.type}</span>
+            </div>
+
+            <h2 class="planet-title" aria-label="${planet.name}">${titleCharsHTML}</h2>
+
+            <div class="planet-data-blocks">
+              <!-- Datos protagonistas en tamaño XXL con JetBrains Mono -->
+              <div class="hero-stats-row">
+                <div class="hero-stat-item">
+                  <span class="hero-stat-number">${planet.diameterNum}</span>
+                  <span class="stat-meta-label">Diámetro ecuatorial</span>
+                  <span class="stat-unit-sub">${planet.diameterUnit}</span>
+                </div>
+                <div class="hero-stat-item">
+                  <span class="hero-stat-number">${planet.distanceNum}</span>
+                  <span class="stat-meta-label">Distancia media al Sol</span>
+                  <span class="stat-unit-sub">${planet.distanceUnit}</span>
+                </div>
+              </div>
+
+              <div class="astro-rule" aria-hidden="true"></div>
+
+              <!-- Lista editorial con puntos suspensivos conductores -->
+              <div class="magazine-telemetry-list" role="list">
+                <div class="magazine-row" role="listitem">
+                  <span class="magazine-label">Período orbital</span>
+                  <span class="magazine-dots" aria-hidden="true"></span>
+                  <span class="magazine-value">${planet.orbitalPeriod}</span>
+                </div>
+                <div class="magazine-row" role="listitem">
+                  <span class="magazine-label">Período de rotación</span>
+                  <span class="magazine-dots" aria-hidden="true"></span>
+                  <span class="magazine-value">${planet.rotationPeriod}</span>
+                </div>
+                <div class="magazine-row" role="listitem">
+                  <span class="magazine-label">Temperatura media</span>
+                  <span class="magazine-dots" aria-hidden="true"></span>
+                  <span class="magazine-value">${planet.temperature}</span>
+                </div>
+                <div class="magazine-row" role="listitem">
+                  <span class="magazine-label">Lunas conocidas</span>
+                  <span class="magazine-dots" aria-hidden="true"></span>
+                  <span class="magazine-value">${planet.moons}</span>
+                </div>
+              </div>
+
+              <div class="astro-rule" aria-hidden="true"></div>
+
+              <!-- Composición Atmosférica -->
+              <div class="detail-block">
+                <h3 class="detail-block-heading">Composición atmosférica</h3>
+                <p class="detail-paragraph">${planet.atmosphere}</p>
+              </div>
+
+              <!-- Datos Curiosos como citas con barra naranja a la izquierda -->
+              <div class="detail-block">
+                <h3 class="detail-block-heading">Notas y hallazgos astronómicos</h3>
+                <ul class="curiosities-list">${curiositiesHTML}</ul>
+              </div>
+
+              <!-- Misiones como línea temporal horizontal con puntos -->
+              <div class="detail-block">
+                <h3 class="detail-block-heading">Cronología de exploración</h3>
+                <div class="missions-tags-wrap">${missionsHTML}</div>
+              </div>
+            </div>
+          </article>
+
+          <div class="planet-3d-column" id="col3d-${planet.id}">
+            <div class="planet-viewport-wrapper" id="viewport-${planet.id}" data-planet="${planet.id}" tabindex="0" role="region" aria-label="Modelo 3D interactivo de ${planet.name}. Arrastra para rotar.">
+            </div>
+            <div class="planet-interactive-hud">
+              <span class="planet-hud-pill">Arrastra para rotar · Zoom</span>
+              <div class="planet-zoom-controls" aria-label="Controles de zoom de ${planet.name}">
+                <button type="button" class="planet-zoom-btn" data-zoom-planet="${planet.id}" data-zoom-dir="-1" aria-label="Alejar ${planet.name}">−</button>
+                <button type="button" class="planet-zoom-btn" data-zoom-planet="${planet.id}" data-zoom-dir="0" aria-label="Restablecer vista de ${planet.name}">100%</button>
+                <button type="button" class="planet-zoom-btn" data-zoom-planet="${planet.id}" data-zoom-dir="1" aria-label="Acercar ${planet.name}">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      planetsContainer.appendChild(section);
+    });
+
+    /* ==========================================================================
+       3. CONFIGURACIÓN DEL RENDERER ÚNICO Y CALIDAD ADAPTATIVA
+          - Sin antialiasing en móvil
+          - pixelRatio = Math.min(devicePixelRatio, 2)
+       ========================================================================== */
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let isMobile = window.matchMedia('(max-width: 767px)').matches;
+
+    const webglCanvas = document.getElementById('cosmos-webgl-canvas');
+    const renderer = new THREE.WebGLRenderer({
+      canvas: webglCanvas,
+      antialias: !isMobile,
+      alpha: false,
+      powerPreference: 'high-performance',
+      stencil: false
+    });
+
+    // Detectar si el navegador está ejecutando WebGL por software (Hardware Acceleration OFF)
+    let isSoftwareRenderer = false;
+    try {
+      const gl = renderer.getContext();
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg) {
+        const rendererStr = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '');
+        if (/SwiftShader|Software|llvmpipe|Microsoft Basic Render/i.test(rendererStr)) {
+          isSoftwareRenderer = true;
+        }
+      }
+    } catch (_) {}
+
+    let vpWidth = window.innerWidth;
+    let vpHeight = window.innerHeight;
+
+    function updateRendererSize() {
+      isMobile = window.matchMedia('(max-width: 767px)').matches;
+      vpWidth = window.innerWidth;
+      vpHeight = window.innerHeight;
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      renderer.setPixelRatio(isSoftwareRenderer ? 1 : pixelRatio);
+      renderer.setSize(vpWidth, vpHeight, false);
+    }
+    updateRendererSize();
+
+    // Render on demand: solo renderiza cuando hay movimiento activo
+    let needsRender = true;
+    let activeMotionFrames = isSoftwareRenderer ? 24 : 90;
+
+    function requestRender(extraFrames) {
+      needsRender = true;
+      const framesToAdd = typeof extraFrames === 'number'
+        ? extraFrames
+        : (isSoftwareRenderer ? 12 : 45);
+      if (framesToAdd > activeMotionFrames) {
+        activeMotionFrames = framesToAdd;
+      }
+    }
+
+    /* ==========================================================================
+       4. ESCENA PRINCIPAL DE FONDO + AGUJERO NEGRO (0.5x RENDER TARGET) + KUIPER
+       ========================================================================== */
+    const bgScene = new THREE.Scene();
+    bgScene.background = new THREE.Color(0x05060a);
+    const bgCamera = new THREE.PerspectiveCamera(50, vpWidth / vpHeight, 0.1, 400);
+    bgCamera.position.set(0, 0, 12);
+
+    const starGroup = new THREE.Group();
+    bgScene.add(starGroup);
+
+    // Reutilizar un único PointsMaterial base por tamaño de estrella
+    const sharedStarMaterials = [];
+    const sharedGeometriesToDispose = [];
+
+    function createStarLayerPoints(count, zMin, zMax, size, colorsHex) {
+      const geo = new THREE.BufferGeometry();
+      sharedGeometriesToDispose.push(geo);
+      const pos = new Float32Array(count * 3);
+      const col = new Float32Array(count * 3);
+      const cObj = new THREE.Color();
+
+      for (let i = 0; i < count; i++) {
+        pos[i * 3] = (Math.random() - 0.5) * 70;
+        pos[i * 3 + 1] = (Math.random() - 0.5) * 60;
+        pos[i * 3 + 2] = zMin + Math.random() * (zMax - zMin);
+
+        cObj.setHex(colorsHex[i % colorsHex.length]);
+        col[i * 3] = cObj.r;
+        col[i * 3 + 1] = cObj.g;
+        col[i * 3 + 2] = cObj.b;
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+      const mat = new THREE.PointsMaterial({
+        size,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.88,
+        depthWrite: false
+      });
+      sharedStarMaterials.push(mat);
+      const pts = new THREE.Points(geo, mat);
+      pts.frustumCulled = true;
+      return pts;
+    }
+
+    const starLayerFar  = createStarLayerPoints(isMobile ? 320 : 650, -35, -18, 0.08, [0xffffff, 0x93c5fd, 0xddd6fe]);
+    const starLayerMid  = createStarLayerPoints(isMobile ? 180 : 350, -18, -6,  0.11, [0xffffff, 0xfed7aa, 0x38bdf8]);
+    const starDustNear  = createStarLayerPoints(isMobile ? 60  : 120, -6,   4,  0.14, [0x38bdf8, 0xa855f7, 0xf97316]);
+    starGroup.add(starLayerFar, starLayerMid, starDustNear);
+
+    const meteorGeo = new THREE.BufferGeometry();
+    sharedGeometriesToDispose.push(meteorGeo);
+    meteorGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0, -1.6, 0.7, 0]), 3));
+    const meteorMat = new THREE.LineBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0 });
+    const meteorLine = new THREE.Line(meteorGeo, meteorMat);
+    meteorLine.position.set(0, 0, -4);
+    meteorLine.visible = false;
+    bgScene.add(meteorLine);
+
+    let meteorState = { active: false, vx: 18, vy: -9, life: 0 };
+
+    // Escena del Agujero Negro renderizada a 0.5x de resolución (RenderTarget 0.5x)
+    const bhOffscreenScene = new THREE.Scene();
+    const bhOffscreenCamera = new THREE.PerspectiveCamera(48, vpWidth / vpHeight, 0.1, 100);
+    bhOffscreenCamera.position.set(0, 0.35, 9.2);
+
+    const bhRenderTarget = new THREE.WebGLRenderTarget(
+      Math.max(1, Math.floor(vpWidth * 0.5)),
+      Math.max(1, Math.floor(vpHeight * 0.5)),
+      { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true, stencilBuffer: false }
+    );
+
+    const blackHoleGroup = new THREE.Group();
+    bhOffscreenScene.add(blackHoleGroup);
+
+    const ehGeo = new THREE.SphereGeometry(1.42, 24, 24);
+    sharedGeometriesToDispose.push(ehGeo);
+    const ehMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const eventHorizonMesh = new THREE.Mesh(ehGeo, ehMat);
+    eventHorizonMesh.frustumCulled = true;
+    blackHoleGroup.add(eventHorizonMesh);
+
+    const lensingGeo = new THREE.PlaneGeometry(8.2, 8.2);
+    sharedGeometriesToDispose.push(lensingGeo);
+    const lensingMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv * 2.0 - 1.0;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform float uTime;
+        void main() {
+          float r = length(vUv);
+          float rs = 0.335;
+          if (r < rs * 0.96 || r > 0.98) discard;
+
+          float dRing = (r - rs * 1.03) / 0.024;
+          float photonRing = exp(-dRing * dRing) * 1.45;
+          vec2 warpedUv = vec2(vUv.x * 0.85, vUv.y * 1.38);
+          float rLens = length(warpedUv);
+          float dLens = (rLens - rs * 1.18) / 0.11;
+          float lensArch = exp(-dLens * dLens) * smoothstep(0.05, 0.42, abs(vUv.y));
+
+          float angle = atan(vUv.y, vUv.x);
+          float wave = 0.5 + 0.5 * sin(angle * 4.0 + uTime * 2.0 - r * 10.0);
+          float doppler = 0.68 + 0.36 * cos(angle + 0.35);
+
+          vec3 colOrange = vec3(1.0, 0.46, 0.08);
+          vec3 colRed    = vec3(0.86, 0.14, 0.12);
+          vec3 colBlue   = vec3(0.35, 0.72, 1.0);
+          vec3 colWhite  = vec3(1.0, 0.96, 0.88);
+
+          vec3 archColor = mix(colRed, colOrange, wave) * doppler;
+          archColor = mix(archColor, colBlue, clamp((doppler - 0.82) * 2.0, 0.0, 0.6));
+
+          vec3 finalColor = colWhite * photonRing + archColor * lensArch * 1.2;
+          float alpha = clamp(photonRing + lensArch * 0.92, 0.0, 1.0) * smoothstep(0.98, 0.55, r);
+          gl_FragColor = vec4(finalColor, alpha);
+        }
+      `
+    });
+    const lensingPlane = new THREE.Mesh(lensingGeo, lensingMat);
+    lensingPlane.frustumCulled = true;
+    blackHoleGroup.add(lensingPlane);
+
+    const diskGeo = new THREE.RingGeometry(1.52, 4.3, isMobile ? 40 : 56, 4);
+    sharedGeometriesToDispose.push(diskGeo);
+    const diskMat = new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        varying vec2 vPos;
+        varying float vRadius;
+        void main() {
+          vPos = position.xy;
+          vRadius = length(position.xy);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vPos;
+        varying float vRadius;
+        uniform float uTime;
+        void main() {
+          float normR = clamp((vRadius - 1.52) / (4.3 - 1.52), 0.0, 1.0);
+          float angle = atan(vPos.y, vPos.x);
+          float kepler = angle + uTime * (2.4 / max(vRadius, 1.2));
+          float bands = 0.55 + 0.45 * sin(kepler * 5.0 + normR * 18.0 - uTime);
+
+          vec3 innerHot  = vec3(0.42, 0.80, 1.0);
+          vec3 midOrange = vec3(1.0, 0.50, 0.08);
+          vec3 outerRed  = vec3(0.82, 0.10, 0.08);
+
+          vec3 col = mix(innerHot, midOrange, smoothstep(0.0, 0.38, normR));
+          col = mix(col, outerRed, smoothstep(0.38, 0.92, normR));
+          float invR = 1.0 - normR;
+          col += vec3(1.0, 0.94, 0.84) * (invR * invR * invR) * 0.8;
+
+          float doppler = 0.72 + 0.36 * cos(angle + 0.4);
+          col *= bands * doppler;
+
+          float radialFade = smoothstep(0.0, 0.08, normR) * (1.0 - smoothstep(0.65, 1.0, normR));
+          gl_FragColor = vec4(col, radialFade * bands);
+        }
+      `
+    });
+    const accretionDiskMesh = new THREE.Mesh(diskGeo, diskMat);
+    accretionDiskMesh.rotation.x = Math.PI * 0.41;
+    accretionDiskMesh.rotation.z = -0.14;
+    accretionDiskMesh.frustumCulled = true;
+    blackHoleGroup.add(accretionDiskMesh);
+
+    const bhQuadScene = new THREE.Scene();
+    const bhQuadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const bhQuadGeo = new THREE.PlaneGeometry(2, 2);
+    sharedGeometriesToDispose.push(bhQuadGeo);
+    const bhQuadMat = new THREE.MeshBasicMaterial({
+      map: bhRenderTarget.texture,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const bhQuadMesh = new THREE.Mesh(bhQuadGeo, bhQuadMat);
+    bhQuadScene.add(bhQuadMesh);
+
+    // Cinturón de Kuiper 3D para el cierre (#confines)
+    const kuiperGroup = new THREE.Group();
+    kuiperGroup.position.set(0, 0, -45);
+    kuiperGroup.visible = false;
+    bgScene.add(kuiperGroup);
+
+    const kuiperPoints = createStarLayerPoints(isMobile ? 350 : 650, -8, 8, 0.11, [0x38bdf8, 0xa855f7, 0xfbbf24]);
+    kuiperPoints.material.opacity = 0;
+    kuiperGroup.add(kuiperPoints);
+
+    /* ==========================================================================
+       5. GEOMETRÍAS Y MATERIALES COMPARTIDOS REUTILIZADOS PARA LOS 8 PLANETAS
+          - No se instancia una geometría ni material nuevo por cada planeta
+       ========================================================================== */
+    const sphereSegments = isMobile ? 28 : 44;
+    const SHARED_SPHERE_GEO = new THREE.SphereGeometry(1, sphereSegments, sphereSegments);
+    const SHARED_HALO_GEO   = new THREE.SphereGeometry(1.045, 20, 20);
+    const SHARED_CLOUDS_GEO = new THREE.SphereGeometry(1.016, 24, 24);
+
+    function createRadialRingGeometry(innerR, outerR, segs) {
+      const geo = new THREE.RingGeometry(innerR, outerR, segs, 1);
+      const pos = geo.attributes.position;
+      const uvs = geo.attributes.uv;
+      const v3 = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        v3.fromBufferAttribute(pos, i);
+        const u = (v3.length() - innerR) / (outerR - innerR);
+        uvs.setXY(i, u, 0.5);
+      }
+      return geo;
+    }
+
+    const SHARED_SATURN_RING_GEO = createRadialRingGeometry(1.32, 2.42, isMobile ? 40 : 64);
+    const SHARED_ICE_RING_GEO    = createRadialRingGeometry(1.28, 1.82, isMobile ? 32 : 48);
+
+    sharedGeometriesToDispose.push(
+      SHARED_SPHERE_GEO,
+      SHARED_HALO_GEO,
+      SHARED_CLOUDS_GEO,
+      SHARED_SATURN_RING_GEO,
+      SHARED_ICE_RING_GEO
+    );
+
+    // Materiales compartidos reutilizados entre todos los planetas
+    const SHARED_PLACEHOLDER_MAT = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.78,
+      metalness: 0.05
+    });
+
+    const SHARED_PLANET_STD_MAT = new THREE.MeshStandardMaterial({
+      roughness: 0.72,
+      metalness: 0.05
+    });
+
+    const SHARED_HALO_MAT = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const SHARED_SUN_DIR = new THREE.Vector3(5.5, 1.4, 2.8).normalize();
+    const SHARED_EARTH_MAT = new THREE.ShaderMaterial({
+      uniforms: {
+        uDayTexture: { value: null },
+        uNightTexture: { value: null },
+        uSunDirection: { value: SHARED_SUN_DIR }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldNormal;
+        void main() {
+          vUv = uv;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uDayTexture;
+        uniform sampler2D uNightTexture;
+        uniform vec3 uSunDirection;
+        varying vec2 vUv;
+        varying vec3 vWorldNormal;
+        void main() {
+          float sunDot = dot(vWorldNormal, uSunDirection);
+          float dayFactor = smoothstep(-0.18, 0.25, sunDot);
+          float diffuse = max(sunDot, 0.0);
+          vec3 dayCol = texture2D(uDayTexture, vUv).rgb * (0.12 + 0.98 * diffuse);
+          vec3 nightLights = texture2D(uNightTexture, vUv).rgb * 1.45;
+          gl_FragColor = vec4(mix(nightLights + vec3(0.01, 0.02, 0.05), dayCol, dayFactor), 1.0);
+        }
+      `
+    });
+
+    const SHARED_CLOUDS_MAT = new THREE.MeshStandardMaterial({
+      transparent: true,
+      opacity: 0.68,
+      depthWrite: false
+    });
+
+    const SHARED_SATURN_RING_MAT = new THREE.MeshStandardMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      roughness: 0.6
+    });
+
+    const SHARED_ICE_RING_MAT = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.65
+    });
+
+    const sharedMaterialsToDispose = [
+      SHARED_PLACEHOLDER_MAT,
+      SHARED_PLANET_STD_MAT,
+      SHARED_HALO_MAT,
+      SHARED_EARTH_MAT,
+      SHARED_CLOUDS_MAT,
+      SHARED_SATURN_RING_MAT,
+      SHARED_ICE_RING_MAT,
+      ehMat,
+      lensingMat,
+      diskMat,
+      bhQuadMat,
+      meteorMat,
+      ...sharedStarMaterials
+    ];
+
+    const planetStageScene = new THREE.Scene();
+    const sunDirLight = new THREE.DirectionalLight(0xfffbeb, 2.2);
+    sunDirLight.position.set(5.5, 1.4, 2.8);
+    planetStageScene.add(sunDirLight);
+
+    const ambLight = new THREE.AmbientLight(0x1e293b, 0.24);
+    planetStageScene.add(ambLight);
+
+    const planetInstances = {};
+    const planetOrderIds = PLANETS_DATA.map((p) => p.id);
+
+    PLANETS_DATA.forEach((p) => {
+      const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 50);
+      camera.position.set(0, 0, 5.2);
+
+      const rootGroup = new THREE.Group();
+      rootGroup.visible = false;
+      rootGroup.rotation.z = THREE.MathUtils.degToRad(Math.min(p.visual.tiltDeg, 98));
+      planetStageScene.add(rootGroup);
+
+      // Todos los planetas reutilizan SHARED_SPHERE_GEO y SHARED_PLACEHOLDER_MAT / SHARED_PLANET_STD_MAT
+      const planetMesh = new THREE.Mesh(SHARED_SPHERE_GEO, SHARED_PLACEHOLDER_MAT);
+      planetMesh.scale.setScalar(p.visual.radius);
+      planetMesh.frustumCulled = true;
+      if (p.id === 'jupiter') {
+        planetMesh.rotation.y = -Math.PI * 0.52;
+      }
+      rootGroup.add(planetMesh);
+
+      // Todos los planetas reutilizan SHARED_HALO_GEO y SHARED_HALO_MAT
+      const haloMesh = new THREE.Mesh(SHARED_HALO_GEO, SHARED_HALO_MAT);
+      haloMesh.scale.setScalar(p.visual.radius);
+      haloMesh.frustumCulled = true;
+      rootGroup.add(haloMesh);
+
+      const viewportEl = document.getElementById(`viewport-${p.id}`);
+      const panelEl = document.getElementById(`panel-${p.id}`);
+      const col3dEl = document.getElementById(`col3d-${p.id}`);
+      const sectionEl = document.getElementById(`sec-${p.id}`);
+
+      planetInstances[p.id] = {
+        data: p,
+        camera,
+        rootGroup,
+        planetMesh,
+        haloMesh,
+        cloudsMesh: null,
+        ringMesh: null,
+        viewportEl,
+        panelEl,
+        col3dEl,
+        sectionEl,
+        rect: { left: 0, top: 0, bottom: 0, width: 0, height: 0 },
+        cachedMetrics: {
+          panelDocTop: 0,
+          panelHeight: 560,
+          colHeight: 512,
+          vpLeft: 0,
+          vpOffsetTopInCol: 0,
+          vpWidth: 400,
+          vpHeight: 400,
+          lastColOffset: -1
+        },
+        isVisible: false,
+        inViewport: false,
+        textureStatus: 'unloaded',
+        pack: null,
+        allocatedTextures: [],
+        isDragging: false,
+        wheelZoomActive: false,
+        prevX: 0,
+        prevY: 0,
+        velX: 0,
+        zoom: 5.2
+      };
+
+      viewportEl.addEventListener('pointerenter', () => {
+        requestRender(60);
+      }, { passive: true });
+
+      viewportEl.addEventListener('pointerdown', (e) => {
+        const inst = planetInstances[p.id];
+        inst.isDragging = true;
+        inst.wheelZoomActive = true;
+        viewportEl.classList.add('wheel-zoom-active');
+        inst.prevX = e.clientX;
+        inst.prevY = e.clientY;
+        try { viewportEl.setPointerCapture(e.pointerId); } catch (_) {}
+        requestRender(60);
+      });
+
+      viewportEl.addEventListener('pointermove', (e) => {
+        const inst = planetInstances[p.id];
+        if (!inst.isDragging) return;
+        const dx = e.clientX - inst.prevX;
+        const dy = e.clientY - inst.prevY;
+        inst.prevX = e.clientX;
+        inst.prevY = e.clientY;
+
+        inst.planetMesh.rotation.y += dx * 0.008;
+        inst.rootGroup.rotation.x = THREE.MathUtils.clamp(inst.rootGroup.rotation.x + dy * 0.006, -1.1, 1.1);
+        inst.velX = dx * 0.08;
+        requestRender(45);
+      }, { passive: true });
+
+      const endDrag = () => {
+        planetInstances[p.id].isDragging = false;
+        requestRender(45);
+      };
+      viewportEl.addEventListener('pointerup', endDrag, { passive: true });
+      viewportEl.addEventListener('pointercancel', endDrag, { passive: true });
+
+      viewportEl.addEventListener('pointerleave', () => {
+        const inst = planetInstances[p.id];
+        inst.wheelZoomActive = false;
+        viewportEl.classList.remove('wheel-zoom-active');
+      }, { passive: true });
+
+      viewportEl.addEventListener('wheel', (e) => {
+        const inst = planetInstances[p.id];
+        if (!inst.wheelZoomActive && !e.ctrlKey && !e.shiftKey) return;
+        e.preventDefault();
+        inst.zoom = THREE.MathUtils.clamp(inst.zoom + e.deltaY * 0.0035, 3.1, 8.2);
+        inst.camera.position.z = inst.zoom;
+        requestRender(30);
+      }, { passive: false });
+    });
+
+    document.querySelectorAll('.planet-zoom-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pid = btn.getAttribute('data-zoom-planet');
+        const dir = parseInt(btn.getAttribute('data-zoom-dir'), 10);
+        const inst = planetInstances[pid];
+        if (!inst) return;
+        if (dir === 0) {
+          inst.zoom = 5.2;
+          inst.rootGroup.rotation.x = 0;
+        } else {
+          inst.zoom = THREE.MathUtils.clamp(inst.zoom - dir * 0.65, 3.1, 8.2);
+        }
+        inst.camera.position.z = inst.zoom;
+        requestRender(30);
+      });
+    });
+
+    /* ==========================================================================
+       6. GESTIÓN DE MEMORIA (DISPOSE) Y GENERACIÓN DE TEXTURAS EN FORMATO .WEBP
+          - Máximo 1024x1024 en móvil, 2048x2048 en desktop
+          - Codificación en formato .webp (image/webp) y decodificación asíncrona
+       ========================================================================== */
+    const sharedScratchCanvas = document.createElement('canvas');
+    const sharedScratchCtx = sharedScratchCanvas.getContext('2d', { alpha: true });
+
+    function createAsyncWebpTexture(drawFn, baseW, baseH) {
+      const maxDim = isMobile ? 1024 : 2048;
+      const scale = Math.min(1, maxDim / Math.max(baseW, baseH));
+      const width = Math.max(64, Math.floor(baseW * scale));
+      const height = Math.max(32, Math.floor(baseH * scale));
+
+      sharedScratchCanvas.width = width;
+      sharedScratchCanvas.height = height;
+      sharedScratchCtx.clearRect(0, 0, width, height);
+      drawFn(sharedScratchCtx, width, height);
+
+      return new Promise((resolve) => {
+        const finalizeTexture = (sourceImage) => {
+          const tex = new THREE.Texture(sourceImage);
+          tex.wrapS = THREE.RepeatWrapping;
+          tex.wrapT = THREE.ClampToEdgeWrapping;
+          tex.generateMipmaps = false;
+          tex.minFilter = THREE.LinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          tex.userData = { mimeType: 'image/webp', maxDim };
+          tex.needsUpdate = true;
+          resolve(tex);
+        };
+
+        if (typeof sharedScratchCanvas.toBlob === 'function') {
+          sharedScratchCanvas.toBlob((blob) => {
+            if (blob && typeof window.createImageBitmap === 'function') {
+              window.createImageBitmap(blob).then(finalizeTexture).catch(() => {
+                const fallbackCanvas = document.createElement('canvas');
+                fallbackCanvas.width = width;
+                fallbackCanvas.height = height;
+                fallbackCanvas.getContext('2d').drawImage(sharedScratchCanvas, 0, 0);
+                finalizeTexture(fallbackCanvas);
+              });
+            } else {
+              const fallbackCanvas = document.createElement('canvas');
+              fallbackCanvas.width = width;
+              fallbackCanvas.height = height;
+              fallbackCanvas.getContext('2d').drawImage(sharedScratchCanvas, 0, 0);
+              finalizeTexture(fallbackCanvas);
+            }
+          }, 'image/webp', 0.85);
+        } else {
+          const dataUrl = sharedScratchCanvas.toDataURL('image/webp', 0.85);
+          const img = new Image();
+          img.onload = () => finalizeTexture(img);
+          img.src = dataUrl;
+        }
+      });
+    }
+
+    async function generatePlanetWebpPack(planetId) {
+      const texW = isMobile ? 1024 : 2048;
+      const texH = isMobile ? 512  : 1024;
+
+      if (planetId === 'mercurio') {
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, '#78716c');
+          g.addColorStop(0.5, '#a8a29e');
+          g.addColorStop(1, '#57534e');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+
+          ctx.fillStyle = 'rgba(41, 37, 36, 0.42)';
+          for (let i = 0; i < 160; i++) {
+            const x = ((i * 97) % 100) * 0.01 * w;
+            const y = ((i * 53) % 100) * 0.01 * h;
+            const r = (4 + (i % 18)) * (w / 1024);
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.strokeStyle = 'rgba(231, 229, 228, 0.55)';
+          ctx.lineWidth = 4 * (w / 1024);
+          ctx.beginPath();
+          ctx.arc(w * 0.38, h * 0.44, 65 * (w / 1024), 0, Math.PI * 2);
+          ctx.stroke();
+        }, texW, texH);
+        return { map, bumpMap: map, bumpScale: 0.035 };
+      }
+
+      if (planetId === 'venus') {
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, '#92400e');
+          g.addColorStop(0.3, '#d97706');
+          g.addColorStop(0.5, '#fbbf24');
+          g.addColorStop(0.7, '#d97706');
+          g.addColorStop(1, '#78350f');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+
+          ctx.strokeStyle = 'rgba(254, 243, 199, 0.18)';
+          ctx.lineWidth = 6 * (w / 1024);
+          for (let y = 0; y < h; y += Math.floor(h / 28)) {
+            ctx.beginPath();
+            for (let x = 0; x <= w; x += Math.floor(w / 24)) {
+              const wy = y + Math.sin((x / w) * Math.PI * 4 + y * 0.02) * 14 * (h / 512);
+              if (x === 0) ctx.moveTo(x, wy);
+              else ctx.lineTo(x, wy);
+            }
+            ctx.stroke();
+          }
+        }, texW, texH);
+        return { map };
+      }
+
+      if (planetId === 'tierra') {
+        const continents = [
+          { x: 0.19, y: 0.30, rx: 0.09, ry: 0.11 },
+          { x: 0.29, y: 0.63, rx: 0.06, ry: 0.14 },
+          { x: 0.51, y: 0.28, rx: 0.07, ry: 0.08 },
+          { x: 0.53, y: 0.52, rx: 0.08, ry: 0.15 },
+          { x: 0.69, y: 0.32, rx: 0.13, ry: 0.11 },
+          { x: 0.82, y: 0.68, rx: 0.06, ry: 0.06 }
+        ];
+
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const ocean = ctx.createLinearGradient(0, 0, 0, h);
+          ocean.addColorStop(0, '#0c4a6e');
+          ocean.addColorStop(0.5, '#0284c7');
+          ocean.addColorStop(1, '#082f49');
+          ctx.fillStyle = ocean;
+          ctx.fillRect(0, 0, w, h);
+
+          continents.forEach((c) => {
+            ctx.fillStyle = '#15803d';
+            for (let k = 0; k < 20; k++) {
+              const ang = (k / 20) * Math.PI * 2;
+              const ox = (c.x + Math.cos(ang) * c.rx * 0.5) * w;
+              const oy = (c.y + Math.sin(ang) * c.ry * 0.5) * h;
+              const rad = (0.028 + (k % 4) * 0.008) * w;
+              ctx.beginPath();
+              ctx.arc(ox, oy, rad, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          });
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(0, 0, w, h * 0.065);
+          ctx.fillRect(0, h * 0.92, w, h * 0.08);
+        }, texW, texH);
+
+        const nightMap = await createAsyncWebpTexture((ctx, w, h) => {
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = '#fbbf24';
+          continents.forEach((c) => {
+            for (let i = 0; i < 90; i++) {
+              const px = (c.x + Math.sin(i * 12.3) * c.rx * 0.7) * w;
+              const py = (c.y + Math.cos(i * 7.7) * c.ry * 0.7) * h;
+              ctx.fillRect(px, py, 2.5 * (w / 1024), 2.5 * (w / 1024));
+            }
+          });
+        }, texW, texH);
+
+        const cloudsMap = await createAsyncWebpTexture((ctx, w, h) => {
+          ctx.clearRect(0, 0, w, h);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          for (let i = 0; i < 95; i++) {
+            const x = ((i * 73) % 100) * 0.01 * w;
+            const y = ((i * 41) % 100) * 0.01 * h;
+            ctx.beginPath();
+            ctx.ellipse(x, y, 36 * (w / 1024), 10 * (h / 512), 0.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }, Math.min(1024, texW), Math.min(512, texH));
+
+        return { map, nightMap, cloudsMap };
+      }
+
+      if (planetId === 'marte') {
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, '#9a3412');
+          g.addColorStop(0.45, '#ea580c');
+          g.addColorStop(0.75, '#c2410c');
+          g.addColorStop(1, '#7c2d12');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+
+          ctx.fillStyle = 'rgba(67, 20, 7, 0.38)';
+          for (let i = 0; i < 90; i++) {
+            const x = ((i * 83) % 100) * 0.01 * w;
+            const y = ((i * 67) % 100) * 0.01 * h;
+            ctx.beginPath();
+            ctx.arc(x, y, (8 + (i % 20)) * (w / 1024), 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.strokeStyle = 'rgba(45, 12, 4, 0.82)';
+          ctx.lineWidth = 6 * (w / 1024);
+          ctx.beginPath();
+          ctx.moveTo(w * 0.36, h * 0.52);
+          ctx.lineTo(w * 0.60, h * 0.51);
+          ctx.stroke();
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(0, 0, w, h * 0.055);
+          ctx.fillRect(0, h * 0.945, w, h * 0.055);
+        }, texW, texH);
+        return { map, bumpMap: map, bumpScale: 0.03 };
+      }
+
+      if (planetId === 'jupiter') {
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0.00, '#78350f');
+          g.addColorStop(0.15, '#d97706');
+          g.addColorStop(0.28, '#fef3c7');
+          g.addColorStop(0.42, '#b45309');
+          g.addColorStop(0.52, '#fffbeb');
+          g.addColorStop(0.64, '#9a3412');
+          g.addColorStop(0.78, '#fde68a');
+          g.addColorStop(0.90, '#c2410c');
+          g.addColorStop(1.00, '#78350f');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+
+          const gx = w * 0.52, gy = h * 0.66;
+          ctx.fillStyle = '#dc2626';
+          ctx.beginPath();
+          ctx.ellipse(gx, gy, 68 * (w / 1024), 40 * (h / 512), 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#fef3c7';
+          ctx.lineWidth = 4 * (w / 1024);
+          ctx.stroke();
+        }, texW, texH);
+        return { map };
+      }
+
+      if (planetId === 'saturno') {
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0.0, '#713f12');
+          g.addColorStop(0.25, '#ca8a04');
+          g.addColorStop(0.5, '#fef08a');
+          g.addColorStop(0.75, '#eab308');
+          g.addColorStop(1.0, '#713f12');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+        }, texW, texH);
+
+        const ringMap = await createAsyncWebpTexture((ctx, w, h) => {
+          ctx.clearRect(0, 0, w, h);
+          for (let x = 0; x < w; x++) {
+            const t = x / w;
+            let a = 0;
+            if (t > 0.08 && t < 0.25) a = 0.24;
+            else if (t >= 0.25 && t < 0.62) a = 0.82;
+            else if (t >= 0.62 && t < 0.68) a = 0.03;
+            else if (t >= 0.68 && t < 0.92) a = (t > 0.84 && t < 0.86) ? 0.08 : 0.62;
+            ctx.fillStyle = `rgba(253, 230, 138, ${a})`;
+            ctx.fillRect(x, 0, 1, h);
+          }
+        }, 512, 32);
+
+        return { map, ringMap };
+      }
+
+      if (planetId === 'urano') {
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, '#0891b2');
+          g.addColorStop(0.5, '#67e8f9');
+          g.addColorStop(1, '#0e7490');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+        }, texW, texH);
+
+        const ringMap = await createAsyncWebpTexture((ctx, w, h) => {
+          ctx.clearRect(0, 0, w, h);
+          for (let x = 0; x < w; x++) {
+            const t = x / w;
+            const a = Math.sin(t * Math.PI * 24) > 0.78 ? 0.3 : 0.02;
+            ctx.fillStyle = `rgba(165, 243, 252, ${a})`;
+            ctx.fillRect(x, 0, 1, h);
+          }
+        }, 256, 32);
+
+        return { map, ringMap };
+      }
+
+      if (planetId === 'neptuno') {
+        const map = await createAsyncWebpTexture((ctx, w, h) => {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, '#1e3a8a');
+          g.addColorStop(0.5, '#2563eb');
+          g.addColorStop(1, '#172554');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h);
+
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.ellipse(w * 0.48, h * 0.58, 52 * (w / 1024), 30 * (h / 512), 0, 0, Math.PI * 2);
+          ctx.fill();
+        }, texW, texH);
+
+        const ringMap = await createAsyncWebpTexture((ctx, w, h) => {
+          ctx.clearRect(0, 0, w, h);
+          for (let x = 0; x < w; x++) {
+            const t = x / w;
+            const a = Math.sin(t * Math.PI * 10) > 0.8 ? 0.24 : 0.01;
+            ctx.fillStyle = `rgba(96, 165, 250, ${a})`;
+            ctx.fillRect(x, 0, 1, h);
+          }
+        }, 256, 32);
+
+        return { map, ringMap };
+      }
+    }
+
+    // Liberar texturas y geometrías no usadas con dispose()
+    function disposePlanetResources(planetId) {
+      const inst = planetInstances[planetId];
+      if (!inst || inst.textureStatus !== 'loaded') return;
+
+      inst.planetMesh.material = SHARED_PLACEHOLDER_MAT;
+
+      if (inst.cloudsMesh) {
+        inst.rootGroup.remove(inst.cloudsMesh);
+        inst.cloudsMesh = null;
+      }
+      if (inst.ringMesh) {
+        inst.rootGroup.remove(inst.ringMesh);
+        inst.ringMesh = null;
+      }
+
+      inst.allocatedTextures.forEach((t) => {
+        if (t.image && typeof t.image.close === 'function') {
+          try { t.image.close(); } catch (_) {}
+        }
+        t.dispose();
+      });
+      inst.allocatedTextures = [];
+      inst.pack = null;
+      inst.textureStatus = 'unloaded';
+    }
+
+    async function ensurePlanetLoaded(planetId) {
+      const inst = planetInstances[planetId];
+      if (!inst || inst.textureStatus !== 'unloaded') return;
+      inst.textureStatus = 'loading';
+
+      const pack = await generatePlanetWebpPack(planetId);
+      if (inst.textureStatus !== 'loading') {
+        if (pack) {
+          Object.values(pack).forEach((v) => {
+            if (v && typeof v.dispose === 'function') v.dispose();
+          });
+        }
+        return;
+      }
+
+      inst.pack = pack;
+      if (pack.map) inst.allocatedTextures.push(pack.map);
+      if (pack.nightMap) inst.allocatedTextures.push(pack.nightMap);
+      if (pack.cloudsMap) inst.allocatedTextures.push(pack.cloudsMap);
+      if (pack.ringMap) inst.allocatedTextures.push(pack.ringMap);
+
+      if (planetId === 'tierra') {
+        inst.planetMesh.material = SHARED_EARTH_MAT;
+        if (!inst.cloudsMesh) {
+          const cloudsMesh = new THREE.Mesh(SHARED_CLOUDS_GEO, SHARED_CLOUDS_MAT);
+          cloudsMesh.scale.setScalar(inst.data.visual.radius);
+          cloudsMesh.frustumCulled = true;
+          inst.rootGroup.add(cloudsMesh);
+          inst.cloudsMesh = cloudsMesh;
+        }
+      } else {
+        inst.planetMesh.material = SHARED_PLANET_STD_MAT;
+      }
+
+      if (inst.data.visual.hasSaturnRings && pack.ringMap && !inst.ringMesh) {
+        const ringMesh = new THREE.Mesh(SHARED_SATURN_RING_GEO, SHARED_SATURN_RING_MAT);
+        ringMesh.scale.setScalar(inst.data.visual.radius);
+        ringMesh.rotation.x = Math.PI * 0.44;
+        ringMesh.frustumCulled = true;
+        inst.rootGroup.add(ringMesh);
+        inst.ringMesh = ringMesh;
+      } else if (inst.data.visual.hasIceRings && pack.ringMap && !inst.ringMesh) {
+        const ringMesh = new THREE.Mesh(SHARED_ICE_RING_GEO, SHARED_ICE_RING_MAT);
+        ringMesh.scale.setScalar(inst.data.visual.radius);
+        ringMesh.rotation.x = Math.PI * 0.46;
+        ringMesh.frustumCulled = true;
+        inst.rootGroup.add(ringMesh);
+        inst.ringMesh = ringMesh;
+      }
+
+      inst.textureStatus = 'loaded';
+      requestRender(30);
+    }
+
+    function applySharedMaterialsForPlanet(inst) {
+      SHARED_HALO_MAT.color.setHex(inst.data.visual.atmosphereColor);
+      SHARED_HALO_MAT.opacity = inst.data.visual.atmosphereOpacity;
+
+      if (inst.textureStatus !== 'loaded' || !inst.pack) {
+        inst.planetMesh.material = SHARED_PLACEHOLDER_MAT;
+        return;
+      }
+
+      if (inst.data.id === 'tierra') {
+        SHARED_EARTH_MAT.uniforms.uDayTexture.value = inst.pack.map;
+        SHARED_EARTH_MAT.uniforms.uNightTexture.value = inst.pack.nightMap;
+        inst.planetMesh.material = SHARED_EARTH_MAT;
+        if (inst.cloudsMesh && inst.pack.cloudsMap) {
+          if (SHARED_CLOUDS_MAT.map !== inst.pack.cloudsMap) {
+            SHARED_CLOUDS_MAT.map = inst.pack.cloudsMap;
+            SHARED_CLOUDS_MAT.needsUpdate = true;
+          }
+        }
+      } else {
+        const nextMap = inst.pack.map || null;
+        const nextBump = inst.pack.bumpMap || null;
+        const nextBumpScale = inst.pack.bumpScale || 0.015;
+        if (SHARED_PLANET_STD_MAT.map !== nextMap || SHARED_PLANET_STD_MAT.bumpMap !== nextBump) {
+          SHARED_PLANET_STD_MAT.map = nextMap;
+          SHARED_PLANET_STD_MAT.bumpMap = nextBump;
+          SHARED_PLANET_STD_MAT.bumpScale = nextBumpScale;
+          SHARED_PLANET_STD_MAT.needsUpdate = true;
+        }
+        inst.planetMesh.material = SHARED_PLANET_STD_MAT;
+      }
+
+      if (inst.ringMesh && inst.pack.ringMap) {
+        if (inst.data.visual.hasSaturnRings) {
+          if (SHARED_SATURN_RING_MAT.map !== inst.pack.ringMap) {
+            SHARED_SATURN_RING_MAT.map = inst.pack.ringMap;
+            SHARED_SATURN_RING_MAT.needsUpdate = true;
+          }
+        } else if (inst.data.visual.hasIceRings) {
+          if (SHARED_ICE_RING_MAT.map !== inst.pack.ringMap) {
+            SHARED_ICE_RING_MAT.map = inst.pack.ringMap;
+            SHARED_ICE_RING_MAT.needsUpdate = true;
+          }
+        }
+      }
+    }
+
+    function manageActivePlanetWindow(activeIndex) {
+      PLANETS_DATA.forEach((p, idx) => {
+        const dist = Math.abs(idx - activeIndex);
+        if (dist === 0) {
+          ensurePlanetLoaded(p.id);
+        } else if (dist === 1) {
+          const scheduleFn = window.requestIdleCallback || ((cb) => setTimeout(cb, 80));
+          scheduleFn(() => ensurePlanetLoaded(p.id));
+        } else if (dist > 2) {
+          disposePlanetResources(p.id);
+        }
+      });
+    }
+
+    // Pre-cargar Mercurio y Venus al inicio
+    manageActivePlanetWindow(0);
+
+    // Liberación completa de memoria WebGL al cerrar o abandonar la página
+    window.addEventListener('pagehide', () => {
+      planetOrderIds.forEach((pid) => disposePlanetResources(pid));
+      sharedGeometriesToDispose.forEach((g) => g.dispose());
+      sharedMaterialsToDispose.forEach((m) => m.dispose());
+      bhRenderTarget.dispose();
+    });
+
+    /* ==========================================================================
+       7. CACHE SIN REFLOWS DE COORDENADAS Y SINCRONIZACIÓN DE PANEL Y 3D
+          - Cero llamadas a getBoundingClientRect() u offsetHeight durante scroll
+       ========================================================================== */
+    let isHeroVisible = true;
+    let isFinaleVisible = false;
+    let activePlanetId = null;
+    let currentScrollY = window.scrollY || 0;
+
+    function cacheLayoutMetrics() {
+      const scrollYNow = smoother ? smoother.scrollTop() : (window.scrollY || 0);
+      planetOrderIds.forEach((pid) => {
+        const inst = planetInstances[pid];
+        if (!inst.panelEl || !inst.col3dEl || !inst.viewportEl) return;
+
+        // Restablecer temporalmente transform de la columna 3D para medir su posición base exacta
+        inst.col3dEl.style.transform = 'translate3d(0, 0, 0)';
+        const panelRect = inst.panelEl.getBoundingClientRect();
+        const colRect = inst.col3dEl.getBoundingClientRect();
+        const vpRect = inst.viewportEl.getBoundingClientRect();
+
+        inst.cachedMetrics.panelDocTop = panelRect.top + scrollYNow;
+        inst.cachedMetrics.panelHeight = panelRect.height || 560;
+        inst.cachedMetrics.colHeight = colRect.height || 512;
+        inst.cachedMetrics.vpLeft = vpRect.left;
+        inst.cachedMetrics.vpOffsetTopInCol = vpRect.top - colRect.top;
+        inst.cachedMetrics.vpWidth = vpRect.width;
+        inst.cachedMetrics.vpHeight = vpRect.height;
+        inst.cachedMetrics.lastColOffset = -1;
+      });
+      updateVisiblePlanetRects(scrollYNow);
+    }
+
+    function updateVisiblePlanetRects(scrollTopVal) {
+      const scrollY = typeof scrollTopVal === 'number' ? scrollTopVal : currentScrollY;
+      currentScrollY = scrollY;
+      const isDesktopLayout = vpWidth > 1200;
+
+      for (let i = 0; i < planetOrderIds.length; i++) {
+        const pid = planetOrderIds[i];
+        const inst = planetInstances[pid];
+        if (!inst.isVisible) {
+          inst.inViewport = false;
+          continue;
+        }
+
+        const m = inst.cachedMetrics;
+        const panelScreenTop = m.panelDocTop - scrollY;
+        let colOffset = 0;
+
+        if (isDesktopLayout) {
+          const maxOffset = Math.max(0, m.panelHeight - m.colHeight);
+          const idealOffset = (vpHeight - m.colHeight) * 0.5 - panelScreenTop;
+          colOffset = Math.round(THREE.MathUtils.clamp(idealOffset, 0, maxOffset));
+        }
+
+        if (m.lastColOffset !== colOffset && inst.col3dEl) {
+          m.lastColOffset = colOffset;
+          inst.col3dEl.style.transform = `translate3d(0, ${colOffset}px, 0)`;
+        }
+
+        const vpTop = panelScreenTop + colOffset + m.vpOffsetTopInCol;
+        const vpBottom = vpTop + m.vpHeight;
+
+        inst.rect.left = m.vpLeft;
+        inst.rect.top = vpTop;
+        inst.rect.bottom = vpBottom;
+        inst.rect.width = m.vpWidth;
+        inst.rect.height = m.vpHeight;
+        inst.inViewport = (m.vpWidth > 0 && m.vpHeight > 0 && vpBottom > 0 && vpTop < vpHeight);
+      }
+    }
+
+    const railButtons = document.querySelectorAll('.rail-node');
+
+    function setActiveRailTarget(targetSelector) {
+      railButtons.forEach((b) => {
+        b.classList.toggle('active', b.getAttribute('data-target') === targetSelector);
+      });
+    }
+
+    function ocultarTodosLosPlanetas() {
+      if (activePlanetId === null) return;
+      const prevInst = planetInstances[activePlanetId];
+      activePlanetId = null;
+
+      if (prevInst) {
+        prevInst.isVisible = false;
+        prevInst.inViewport = false;
+        prevInst.rootGroup.visible = false;
+        if (prevInst.panelEl) {
+          prevInst.panelEl.classList.remove('tw-typing');
+          gsap.to(prevInst.panelEl, {
+            opacity: 0,
+            y: 24,
+            duration: prefersReducedMotion ? 0.01 : 0.22,
+            overwrite: 'auto'
+          });
+        }
+        if (prevInst.col3dEl) {
+          gsap.to(prevInst.col3dEl, {
+            opacity: 0,
+            duration: prefersReducedMotion ? 0.01 : 0.22,
+            overwrite: 'auto'
+          });
+        }
+      }
+      requestRender(30);
+    }
+
+    function actualizarPanel(planeta) {
+      const pid = typeof planeta === 'string'
+        ? planeta
+        : (planeta && (planeta.id || planeta.getAttribute?.('data-planeta') || planeta.getAttribute?.('data-planet-id')));
+      if (!pid || !planetInstances[pid] || activePlanetId === pid) return;
+
+      const prevId = activePlanetId;
+      activePlanetId = pid;
+      const activeInst = planetInstances[pid];
+
+      // Ocultar únicamente el planeta anterior en vez de lanzar 16 tweens sobre los 8 planetas
+      if (prevId && prevId !== pid && planetInstances[prevId]) {
+        const prevInst = planetInstances[prevId];
+        prevInst.isVisible = false;
+        prevInst.inViewport = false;
+        prevInst.rootGroup.visible = false;
+        if (prevInst.panelEl) {
+          prevInst.panelEl.classList.remove('tw-typing');
+          gsap.to(prevInst.panelEl, {
+            opacity: 0,
+            y: 24,
+            duration: prefersReducedMotion ? 0.01 : 0.2,
+            ease: 'power2.out',
+            overwrite: 'auto'
+          });
+        }
+        if (prevInst.col3dEl) {
+          gsap.to(prevInst.col3dEl, {
+            opacity: 0,
+            duration: prefersReducedMotion ? 0.01 : 0.2,
+            ease: 'power2.out',
+            overwrite: 'auto'
+          });
+        }
+      }
+
+      activeInst.isVisible = true;
+      manageActivePlanetWindow(activeInst.data.index);
+
+      if (hudCounterEl) {
+        hudCounterEl.textContent = `${activeInst.data.order} / 08`;
+      }
+
+      if (activeInst.panelEl) {
+        activeInst.panelEl.classList.add('tw-typing');
+        gsap.to(activeInst.panelEl, {
+          opacity: 1,
+          y: 0,
+          duration: prefersReducedMotion ? 0.01 : 0.38,
+          ease: 'power2.out',
+          overwrite: 'auto'
+        });
+      }
+
+      if (activeInst.col3dEl) {
+        gsap.to(activeInst.col3dEl, {
+          opacity: 1,
+          duration: prefersReducedMotion ? 0.01 : 0.38,
+          ease: 'power2.out',
+          overwrite: 'auto',
+          onUpdate: () => requestRender(15)
+        });
+      }
+
+      setActiveRailTarget(`#sec-${pid}`);
+      updateVisiblePlanetRects(currentScrollY);
+      requestRender(60);
+    }
+
+    /* ==========================================================================
+       8. GSAP + SCROLLSMOOTHER + SCROLLTRIGGER.BATCH()
+          - Anima solo propiedades transform (x, y, rotation, scale, opacity)
+          - Usa ScrollTrigger.batch() para agrupar animaciones
+          - Elimina scroll snap en móvil para evitar bloqueos
+       ========================================================================== */
+    gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
+
+    let smoother = null;
+    if (typeof ScrollSmoother !== 'undefined' && !isMobile && !ScrollTrigger.isTouch) {
+      smoother = ScrollSmoother.create({
+        wrapper: "#smooth-wrapper",
+        content: "#smooth-content",
+        smooth: isSoftwareRenderer ? 0 : 0.85,
+        effects: false,
+        normalizeScroll: false,
+        smoothTouch: 0
+      });
+    }
+
+    function syncSceneWithScroll(scrollTopVal) {
+      const y = typeof scrollTopVal === 'number'
+        ? scrollTopVal
+        : (smoother ? smoother.scrollTop() : (window.scrollY || 0));
+      starLayerFar.position.y = (y * 0.0018) % 20;
+      starLayerMid.position.y = (y * 0.0042) % 20;
+      starDustNear.position.y = (y * 0.0085) % 20;
+      updateVisiblePlanetRects(y);
+      requestRender(20);
+    }
+
+    ScrollTrigger.create({
+      trigger: "#smooth-content",
+      start: "top top",
+      end: "bottom bottom",
+      onUpdate: (self) => {
+        syncSceneWithScroll(self.scroll());
+      }
+    });
+
+    // Agrupar las animaciones y activaciones de todas las secciones de planetas con ScrollTrigger.batch()
+    ScrollTrigger.batch(".planeta", {
+      start: "top center",
+      end: "bottom center",
+      onEnter: (batch) => {
+        const targetSec = batch[batch.length - 1];
+        if (targetSec) actualizarPanel(targetSec.getAttribute("data-planeta"));
+      },
+      onEnterBack: (batch) => {
+        const targetSec = batch[0];
+        if (targetSec) actualizarPanel(targetSec.getAttribute("data-planeta"));
+      }
+    });
+
+    // Agrupar animaciones de las tarjetas editoriales del cierre con ScrollTrigger.batch() (solo transform/opacity)
+    gsap.set(".realm-card", { opacity: 0, y: 24, willChange: "transform, opacity" });
+    ScrollTrigger.batch(".realm-card", {
+      start: "top 88%",
+      onEnter: (elements) => {
+        gsap.to(elements, {
+          opacity: 1,
+          y: 0,
+          duration: prefersReducedMotion ? 0.01 : 0.4,
+          stagger: 0.08,
+          ease: "power2.out",
+          overwrite: true
+        });
+      },
+      onLeaveBack: (elements) => {
+        gsap.to(elements, {
+          opacity: 0,
+          y: 24,
+          duration: prefersReducedMotion ? 0.01 : 0.2,
+          overwrite: true
+        });
+      }
+    });
+
+    // Visibilidad del Agujero Negro (#abismo)
+    ScrollTrigger.create({
+      trigger: "#abismo",
+      start: "top bottom",
+      end: "bottom top",
+      onToggle: (self) => {
+        isHeroVisible = self.isActive;
+        blackHoleGroup.visible = self.isActive;
+        bhQuadMesh.visible = self.isActive;
+        requestRender(45);
+      }
+    });
+
+    ScrollTrigger.create({
+      trigger: "#abismo",
+      start: "top center",
+      end: "bottom center",
+      onEnter: () => {
+        ocultarTodosLosPlanetas();
+        setActiveRailTarget("#abismo");
+      },
+      onEnterBack: () => {
+        ocultarTodosLosPlanetas();
+        setActiveRailTarget("#abismo");
+      }
+    });
+
+    // Visibilidad del Cinturón de Kuiper (#confines)
+    ScrollTrigger.create({
+      trigger: "#confines",
+      start: "top bottom",
+      end: "bottom top",
+      onToggle: (self) => {
+        isFinaleVisible = self.isActive;
+        kuiperGroup.visible = self.isActive;
+        requestRender(45);
+      }
+    });
+
+    ScrollTrigger.create({
+      trigger: "#confines",
+      start: "top center",
+      end: "bottom center",
+      onEnter: () => {
+        ocultarTodosLosPlanetas();
+        setActiveRailTarget("#confines");
+      },
+      onEnterBack: () => {
+        ocultarTodosLosPlanetas();
+        setActiveRailTarget("#confines");
+      }
+    });
+
+    gsap.to(blackHoleGroup.position, {
+      z: -28,
+      y: 1.8,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#abismo',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: 0.5,
+        onUpdate: () => requestRender(15)
+      }
+    });
+
+    gsap.to(blackHoleGroup.scale, {
+      x: 0.08,
+      y: 0.08,
+      z: 0.08,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#abismo',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: 0.5
+      }
+    });
+
+    gsap.to('#hero-copy-box', {
+      opacity: 0,
+      y: -50,
+      scale: 0.94,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#abismo',
+        start: 'top top',
+        end: '65% top',
+        scrub: 0.4
+      }
+    });
+
+    gsap.to(kuiperGroup.position, {
+      z: 0,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#confines',
+        start: 'top bottom',
+        end: 'center center',
+        scrub: 0.5,
+        onUpdate: () => requestRender(15)
+      }
+    });
+
+    gsap.to(kuiperPoints.material, {
+      opacity: 0.9,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#confines',
+        start: 'top 85%',
+        end: 'center center',
+        scrub: 0.5
+      }
+    });
+
+    // Navegación por clic usando ScrollSmoother
+    function scrollToTargetSection(targetEl) {
+      if (!targetEl) return;
+      if (smoother && !isMobile) {
+        smoother.scrollTo(targetEl, !prefersReducedMotion, "top top");
+      } else {
+        targetEl.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+      }
+    }
+
+    railButtons.forEach((btn) => {
+      const targetSel = btn.getAttribute('data-target');
+      const targetEl = document.querySelector(targetSel);
+      if (!targetEl) return;
+      btn.addEventListener('click', () => {
+        scrollToTargetSection(targetEl);
+      });
+    });
+
+    document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+      anchor.addEventListener('click', (e) => {
+        const href = anchor.getAttribute('href');
+        const targetEl = document.querySelector(href);
+        if (!targetEl) return;
+        e.preventDefault();
+        scrollToTargetSection(targetEl);
+      });
+    });
+
+    ScrollTrigger.addEventListener('refresh', cacheLayoutMetrics);
+    cacheLayoutMetrics();
+
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        updateRendererSize();
+        bgCamera.aspect = vpWidth / vpHeight;
+        bgCamera.updateProjectionMatrix();
+
+        bhOffscreenCamera.aspect = vpWidth / vpHeight;
+        bhOffscreenCamera.updateProjectionMatrix();
+        bhRenderTarget.setSize(
+          Math.max(1, Math.floor(vpWidth * 0.5)),
+          Math.max(1, Math.floor(vpHeight * 0.5))
+        );
+
+        ScrollTrigger.refresh();
+        cacheLayoutMetrics();
+        requestRender(30);
+      }, 60);
+    }, { passive: true });
+
+    /* ==========================================================================
+       9. MODAL DE DATOS COMPLEMENTARIOS (sistema-solar.md) — OPTIMIZADO
+          - Pausa el render loop WebGL y ScrollSmoother mientras está abierto
+          - Aísla eventos wheel/touchmove para scroll nativo instantáneo sin tirones
+       ========================================================================== */
+    const codexModal = document.getElementById('codex-modal');
+    const codexModalPanel = document.getElementById('codex-modal-panel');
+    let isCodexOpen = false;
+
+    function openCodexModal() {
+      if (isCodexOpen) return;
+      isCodexOpen = true;
+      if (smoother) smoother.paused(true);
+      document.body.style.overflow = 'hidden';
+      codexModal.classList.add('open');
+
+      if (!prefersReducedMotion && codexModalPanel) {
+        gsap.fromTo(codexModalPanel,
+          { opacity: 0, y: 16, scale: 0.98 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.24, ease: 'power2.out', overwrite: true }
+        );
+      }
+    }
+
+    function closeCodexModal() {
+      if (!isCodexOpen) return;
+      isCodexOpen = false;
+      codexModal.classList.remove('open');
+      document.body.style.overflow = '';
+      if (smoother) smoother.paused(false);
+      requestRender(30);
+    }
+
+    document.getElementById('btn-open-codex').addEventListener('click', openCodexModal);
+    document.getElementById('btn-close-codex').addEventListener('click', closeCodexModal);
+    codexModal.addEventListener('click', (e) => {
+      if (e.target === codexModal) closeCodexModal();
+    });
+
+    if (codexModalPanel) {
+      codexModalPanel.addEventListener('wheel', (e) => {
+        e.stopPropagation();
+      }, { passive: true });
+      codexModalPanel.addEventListener('touchmove', (e) => {
+        e.stopPropagation();
+      }, { passive: true });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isCodexOpen) {
+        closeCodexModal();
+      }
+    });
+
+    /* ==========================================================================
+       10. ÚNICO BUCLE CON renderer.setAnimationLoop(), CLOCK.GETDELTA() Y
+           RENDER ON DEMAND ("solo renderiza cuando hay movimiento")
+       ========================================================================== */
+    const clock = new THREE.Clock();
+
+    renderer.setAnimationLoop(() => {
+      if (document.hidden || isCodexOpen) {
+        clock.getDelta();
+        return;
+      }
+
+      const delta = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.elapsedTime;
+
+      // Comprobar si hay interacción o inercia activa en el planeta visible
+      let hasPlanetInertia = false;
+      if (activePlanetId !== null) {
+        const activeInst = planetInstances[activePlanetId];
+        if (activeInst && activeInst.inViewport && (activeInst.isDragging || Math.abs(activeInst.velX) > 0.0005)) {
+          hasPlanetInertia = true;
+        }
+      }
+
+      // Render on demand estricto: solo renderiza cuando hay movimiento o ventana activa de transición
+      if (!needsRender && !hasPlanetInertia && activeMotionFrames <= 0) {
+        return;
+      }
+      needsRender = false;
+      if (activeMotionFrames > 0) {
+        activeMotionFrames--;
+      }
+
+      if (isHeroVisible) {
+        if (!prefersReducedMotion) {
+          lensingMat.uniforms.uTime.value = elapsed;
+          diskMat.uniforms.uTime.value = elapsed;
+        }
+        renderer.setScissorTest(false);
+        renderer.setRenderTarget(bhRenderTarget);
+        renderer.clear();
+        renderer.render(bhOffscreenScene, bhOffscreenCamera);
+        renderer.setRenderTarget(null);
+      }
+
+      if (!prefersReducedMotion) {
+        starDustNear.rotation.z += delta * 0.015;
+        if (isFinaleVisible) {
+          kuiperPoints.rotation.y += delta * 0.06;
+        }
+
+        if (!isSoftwareRenderer) {
+          if (!meteorState.active && Math.random() < 0.005) {
+            meteorState.active = true;
+            meteorState.life = 1.0;
+            meteorLine.position.set((Math.random() - 0.3) * 14, 4 + Math.random() * 4, -5);
+            meteorLine.visible = true;
+          } else if (meteorState.active) {
+            meteorLine.position.x -= meteorState.vx * delta;
+            meteorLine.position.y += meteorState.vy * delta;
+            meteorState.life -= delta * 1.4;
+            meteorMat.opacity = Math.max(0, meteorState.life);
+            if (meteorState.life <= 0) {
+              meteorState.active = false;
+              meteorLine.visible = false;
+            }
+          }
+        }
+      }
+
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, vpWidth, vpHeight);
+      renderer.render(bgScene, bgCamera);
+
+      if (isHeroVisible) {
+        renderer.autoClear = false;
+        renderer.render(bhQuadScene, bhQuadCam);
+        renderer.autoClear = true;
+      }
+
+      // Renderizar únicamente el planeta visible en viewport (pausa rotación de planetas no visibles)
+      if (activePlanetId !== null) {
+        const inst = planetInstances[activePlanetId];
+        if (inst && inst.isVisible && inst.inViewport) {
+          const r = inst.rect;
+
+          if (!prefersReducedMotion && !inst.isDragging) {
+            inst.planetMesh.rotation.y += inst.data.visual.rotSpeed * delta + inst.velX * delta;
+            inst.velX *= Math.pow(0.15, delta);
+            if (Math.abs(inst.velX) < 0.0005) inst.velX = 0;
+            if (inst.cloudsMesh) {
+              inst.cloudsMesh.rotation.y += inst.data.visual.rotSpeed * 1.25 * delta;
+            }
+          }
+
+          applySharedMaterialsForPlanet(inst);
+          inst.rootGroup.visible = true;
+
+          const scissorX = Math.floor(r.left);
+          const scissorY = Math.floor(vpHeight - r.top - r.height);
+          const scissorW = Math.floor(r.width);
+          const scissorH = Math.floor(r.height);
+
+          const clipLeft = Math.max(0, scissorX);
+          const clipBottom = Math.max(0, scissorY);
+          const clipRight = Math.min(vpWidth, scissorX + scissorW);
+          const clipTop = Math.min(vpHeight, scissorY + scissorH);
+          const clipW = clipRight - clipLeft;
+          const clipH = clipTop - clipBottom;
+
+          if (clipW > 0 && clipH > 0) {
+            renderer.autoClear = false;
+            renderer.setScissorTest(true);
+            renderer.setViewport(scissorX, scissorY, scissorW, scissorH);
+            renderer.setScissor(clipLeft, clipBottom, clipW, clipH);
+            renderer.clearDepth();
+            renderer.render(planetStageScene, inst.camera);
+            renderer.setScissorTest(false);
+            renderer.autoClear = true;
+          }
+
+          inst.rootGroup.visible = false;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
